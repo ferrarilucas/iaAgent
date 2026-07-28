@@ -14,13 +14,15 @@ mas com fundações limpas para virar produto multiusuário.
 
 - Capturar lançamentos (despesas/receitas) a partir de qualquer mídia.
 - Responder perguntas no chat ("quanto gastei em mercado esse mês?").
-- Vínculo entre usuários: espaços financeiros compartilhados (ex.: casal
-  gerenciando as contas de casa), com convite/aceite gerenciados por um painel web.
+- Vínculo entre usuários com **transparência total**: ao linkar, todos os gastos
+  de ambos (passado e futuro) ficam visíveis para os dois. Cada pessoa pertence a
+  um único espaço; linkar coloca as duas no mesmo espaço. Convite/aceite
+  gerenciados por um painel web.
 - Painel web para visualização (gráficos, transações) e gestão de espaços.
 
 Fora de escopo agora (evoluções futuras):
 - Relatórios proativos / alertas automáticos (cron chamando as mesmas tools).
-- Inferência automática de espaço por frase ("isso é gasto de casa").
+- Espaço pessoal privado coexistindo com o compartilhado (modelo de privacidade).
 - Guardar arquivos originais (comprovantes) — hoje só os dados extraídos.
 
 ## Decisões de arquitetura
@@ -65,7 +67,7 @@ sincronização.
 |---|---|---|
 | `whatsapp-gateway` (agent) | Falar com o Evolution: receber webhook, baixar mídia, enviar resposta e notificações | Evolution API |
 | `agent` (Mastra Agent) | Orquestrar o Gemini: prompt, expor tools, memória conversacional | Gemini via Mastra |
-| `tools` | Ações do agente: `registrar_transacao`, `consultar_transacoes`, `resumo`, `trocar_espaco` | `packages/db` |
+| `tools` | Ações do agente: `registrar_transacao`, `consultar_transacoes`, `resumo` | `packages/db` |
 | `db` (package) | Schema Drizzle, migrations e repository | Postgres |
 | `web` API routes | Endpoints do painel (transações, espaços, convites) + auth | `packages/db` |
 | `web` UI | Telas: visão geral, transações, espaços/convites | `web` API |
@@ -74,16 +76,15 @@ sincronização.
 
 ```
 users
-  id, whatsapp_number (unique), name, active_space_id (FK -> spaces), created_at
-  active_space_id: em qual espaço os lançamentos dessa pessoa caem agora
+  id, whatsapp_number (unique), name, created_at
 
 spaces
   id, name, created_at
-  o "cofre" compartilhado (conta pessoal OU de casa)
+  o grupo de visibilidade compartilhada; uma pessoa sozinha = espaço de 1 membro
 
 space_members
   space_id, user_id, role (owner|member), joined_at
-  PK (space_id, user_id). Um casal = duas linhas apontando para o mesmo space
+  PK (space_id, user_id). Regra do modelo B: cada usuário pertence a UM espaço
 
 invitations
   id, space_id, invited_by (user_id), invited_number, status (pending|accepted|declined), created_at
@@ -93,9 +94,9 @@ categories
   seed inicial: alimentacao, transporte, moradia, lazer, saude, salario, ...
 
 transactions
-  id, space_id, created_by (user_id), type (despesa|receita), amount (numeric),
+  id, created_by (user_id), type (despesa|receita), amount (numeric),
   category_id, description, occurred_at, source (texto|audio|foto|video|pdf), created_at
-  space_id = de quem é o dinheiro; created_by = quem lançou
+  a transação pertence a QUEM LANÇOU (created_by); NÃO carrega space_id
 
 messages  (opcional — Mastra Memory pode cobrir; avaliar na implementação)
   histórico curto para contexto conversacional
@@ -103,8 +104,11 @@ messages  (opcional — Mastra Memory pode cobrir; avaliar na implementação)
 
 Regras:
 - `amount` é `numeric` (nunca float — dinheiro não admite erro de arredondamento).
-- Transações pertencem a `spaces`, não a `users`. `space_id` responde "quanto a
-  casa gastou"; `created_by` responde "quanto eu lancei vs. quanto ela lançou".
+- **Visibilidade vem da participação no espaço, não de um campo na transação.**
+  Você vê as transações de todos os membros do seu espaço (via `created_by` ->
+  `space_members`). Como a transação não guarda `space_id`, entrar ou sair de um
+  espaço muda a visibilidade automaticamente, sem reprocessar transação nenhuma.
+- `created_by` continua permitindo distinguir "quanto cada um lançou".
 - Memória conversacional preferencialmente via **Mastra Memory** no Postgres; a
   tabela `messages` manual é fallback caso a Memory não atenda.
 
@@ -115,26 +119,29 @@ Regras:
 3. `agent` chama o Gemini com a mensagem + mídia + tools + memória do usuário.
 4. Gemini decide:
    - registro → chama `registrar_transacao` (aceita **lote**, ex.: fatura com 40 itens);
-   - pergunta → chama `consultar_transacoes` / `resumo`;
-   - troca de contexto → chama `trocar_espaco`.
+   - pergunta → chama `consultar_transacoes` / `resumo`.
 5. A tool roda no Postgres (via `packages/db`) e devolve o dado.
 6. Gemini formata a resposta natural; `whatsapp-gateway` responde pelo Evolution.
 
-### Roteamento de espaço
-
-O lançamento cai sempre no `active_space` do usuário. Ele troca por comando
-natural ("muda para a conta de casa"), atendido pela tool `trocar_espaco`.
-Inferência automática por frase fica como refinamento futuro para evitar
-ambiguidade agora.
+As consultas e resumos abrangem **todo o espaço do usuário** — ou seja, se ele
+estiver linkado, incluem os lançamentos do parceiro automaticamente.
 
 ## Vínculo entre usuários (convite/aceite — no painel)
 
-1. No painel, no espaço "Casa", o dono clica **Convidar** e informa o número →
+Modelo de **transparência total**: cada usuário pertence a um único espaço; linkar
+coloca as duas pessoas no mesmo espaço, e todos os gastos de ambos (passado e
+futuro) ficam visíveis para os dois.
+
+1. No painel, o dono do espaço clica **Convidar** e informa o número do parceiro →
    cria `invitation` pendente.
 2. O agente dispara uma notificação no WhatsApp do convidado: "Você foi convidado
-   para 'Casa'. Abra o painel para aceitar: [link]".
+   para compartilhar as contas. Abra o painel para aceitar: [link]".
 3. O convidado abre o painel, loga com o número dele (OTP), vê o convite e
-   **Aceita** → entra como `member` (nova linha em `space_members`).
+   **Aceita** → sua participação passa para o espaço compartilhado (linha em
+   `space_members` movida). Os lançamentos passados dele ficam visíveis
+   imediatamente, porque a visibilidade é por participação no espaço.
+4. **Desvincular** (futuro): sair do espaço volta cada um a ver só o seu — também
+   automático, sem reprocessar transações.
 
 Aceite é sempre **explícito** (privacidade/segurança). A gestão do vínculo é toda
 no painel; o agente só notifica.
@@ -150,9 +157,8 @@ no painel; o agente só notifica.
 
 Na primeira mensagem de um número desconhecido, o sistema cria automaticamente:
 - uma linha em `users` (com o número);
-- um `space` pessoal ("Pessoal do <nome>");
-- a linha `space_members` como `owner`;
-- define `active_space_id` para esse espaço.
+- um `space` próprio ("Pessoal do <nome>", espaço de 1 membro);
+- a linha `space_members` como `owner`.
 
 ## Tratamento de erros e casos-limite
 
