@@ -1,7 +1,8 @@
 import { and, eq, gte, lte, inArray, sql } from "drizzle-orm";
 import type { Db } from "../client";
-import { transactions, spaceMembers } from "../schema";
+import { transactions } from "../schema";
 import type { Transaction } from "../types";
+import { getSpaceMemberUserIds } from "./users";
 
 export type TransactionInput = {
   createdBy: string;
@@ -12,14 +13,6 @@ export type TransactionInput = {
   occurredAt: string;
   source: "texto" | "audio" | "foto" | "video" | "pdf";
 };
-
-async function memberIds(db: Db, spaceId: string): Promise<string[]> {
-  const rows = await db
-    .select({ userId: spaceMembers.userId })
-    .from(spaceMembers)
-    .where(eq(spaceMembers.spaceId, spaceId));
-  return rows.map((r) => r.userId);
-}
 
 export async function insertTransactions(db: Db, inputs: TransactionInput[]): Promise<Transaction[]> {
   if (inputs.length === 0) return [];
@@ -44,7 +37,7 @@ export async function listTransactionsForSpace(
   spaceId: string,
   filters: { from?: string; to?: string; type?: "despesa" | "receita" } = {},
 ): Promise<Transaction[]> {
-  const ids = await memberIds(db, spaceId);
+  const ids = await getSpaceMemberUserIds(db, spaceId);
   if (ids.length === 0) return [];
   const conds = [inArray(transactions.createdBy, ids)];
   if (filters.from) conds.push(gte(transactions.occurredAt, filters.from));
@@ -58,7 +51,7 @@ export async function sumByCategory(
   spaceId: string,
   filters: { from: string; to: string; type: "despesa" | "receita" },
 ): Promise<Array<{ categoryId: string | null; total: string }>> {
-  const ids = await memberIds(db, spaceId);
+  const ids = await getSpaceMemberUserIds(db, spaceId);
   if (ids.length === 0) return [];
   return db
     .select({
