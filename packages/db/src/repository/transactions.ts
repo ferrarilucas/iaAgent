@@ -1,0 +1,78 @@
+import { and, eq, gte, lte, inArray, sql } from "drizzle-orm";
+import type { Db } from "../client";
+import { transactions, spaceMembers } from "../schema";
+import type { Transaction } from "../types";
+
+export type TransactionInput = {
+  createdBy: string;
+  type: "despesa" | "receita";
+  amount: string;
+  categoryId?: string;
+  description?: string;
+  occurredAt: string;
+  source: "texto" | "audio" | "foto" | "video" | "pdf";
+};
+
+async function memberIds(db: Db, spaceId: string): Promise<string[]> {
+  const rows = await db
+    .select({ userId: spaceMembers.userId })
+    .from(spaceMembers)
+    .where(eq(spaceMembers.spaceId, spaceId));
+  return rows.map((r) => r.userId);
+}
+
+export async function insertTransactions(db: Db, inputs: TransactionInput[]): Promise<Transaction[]> {
+  if (inputs.length === 0) return [];
+  return db
+    .insert(transactions)
+    .values(
+      inputs.map((i) => ({
+        createdBy: i.createdBy,
+        type: i.type,
+        amount: i.amount,
+        categoryId: i.categoryId ?? null,
+        description: i.description ?? null,
+        occurredAt: i.occurredAt,
+        source: i.source,
+      })),
+    )
+    .returning();
+}
+
+export async function listTransactionsForSpace(
+  db: Db,
+  spaceId: string,
+  filters: { from?: string; to?: string; type?: "despesa" | "receita" } = {},
+): Promise<Transaction[]> {
+  const ids = await memberIds(db, spaceId);
+  if (ids.length === 0) return [];
+  const conds = [inArray(transactions.createdBy, ids)];
+  if (filters.from) conds.push(gte(transactions.occurredAt, filters.from));
+  if (filters.to) conds.push(lte(transactions.occurredAt, filters.to));
+  if (filters.type) conds.push(eq(transactions.type, filters.type));
+  return db.select().from(transactions).where(and(...conds));
+}
+
+export async function sumByCategory(
+  db: Db,
+  spaceId: string,
+  filters: { from: string; to: string; type: "despesa" | "receita" },
+): Promise<Array<{ categoryId: string | null; total: string }>> {
+  const ids = await memberIds(db, spaceId);
+  if (ids.length === 0) return [];
+  return db
+    .select({
+      categoryId: transactions.categoryId,
+      total: sql<string>`sum(${transactions.amount})`,
+    })
+    .from(transactions)
+    .where(
+      and(
+        inArray(transactions.createdBy, ids),
+        eq(transactions.type, filters.type),
+        gte(transactions.occurredAt, filters.from),
+        lte(transactions.occurredAt, filters.to),
+      ),
+    )
+    .groupBy(transactions.categoryId);
+}
