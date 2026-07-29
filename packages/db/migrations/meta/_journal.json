@@ -15,6 +15,13 @@
       "when": 1785288215933,
       "tag": "0001_keen_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785344316798,
+      "tag": "0002_rare_mongu",
+      "breakpoints": true
     }
   ]
 }

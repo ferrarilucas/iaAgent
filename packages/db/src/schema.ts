@@ -13,6 +13,7 @@ export const txTypeEnum = pgEnum("tx_type", ["despesa", "receita"]);
 export const sourceEnum = pgEnum("source", ["texto", "audio", "foto", "video", "pdf"]);
 export const memberRoleEnum = pgEnum("member_role", ["owner", "member"]);
 export const inviteStatusEnum = pgEnum("invite_status", ["pending", "accepted", "declined"]);
+export const budgetScopeEnum = pgEnum("budget_scope", ["user", "space"]);
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -69,4 +70,14 @@ export const invitations = pgTable("invitations", {
 export const processedMessages = pgTable("processed_messages", {
   messageId: text("message_id").primaryKey(),
   processedAt: timestamp("processed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const budgets = pgTable("budgets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  categoryId: uuid("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  scope: budgetScopeEnum("scope").notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  spaceId: uuid("space_id").references(() => spaces.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
