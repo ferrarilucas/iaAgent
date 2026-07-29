@@ -1,0 +1,17 @@
+FROM node:20-slim
+RUN corepack enable
+WORKDIR /app
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/db/package.json packages/db/package.json
+COPY packages/whatsapp/package.json packages/whatsapp/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN pnpm install --frozen-lockfile
+COPY . .
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" \
+    BETTER_AUTH_SECRET="build-placeholder-secret" \
+    BETTER_AUTH_URL="http://localhost:3000" \
+    EVOLUTION_API_URL="https://build.example" \
+    EVOLUTION_INSTANCE="build" \
+    EVOLUTION_API_KEY="build"
+RUN pnpm --filter @ia/web build
+CMD ["pnpm", "start:web"]
