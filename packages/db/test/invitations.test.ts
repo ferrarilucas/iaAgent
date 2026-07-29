@@ -37,4 +37,24 @@ describe("invitations repository", () => {
     const stillPending = await getPendingInvitationsForNumber(t.db, "222");
     expect(stillPending).toHaveLength(0);
   });
+
+  it("aceitar convite ja respondido ou inexistente lanca erro", async () => {
+    const t = await createTestDb();
+    close = t.close;
+    const owner = await bootstrapUser(t.db, { whatsappNumber: "333", name: "Lucas" });
+    const guest = await bootstrapUser(t.db, { whatsappNumber: "444", name: "Ana" });
+
+    const invite = await createInvitation(t.db, {
+      spaceId: owner.space.id,
+      invitedBy: owner.user.id,
+      invitedNumber: "444",
+    });
+
+    await acceptInvitation(t.db, invite.id, guest.user.id);
+
+    await expect(acceptInvitation(t.db, invite.id, guest.user.id)).rejects.toThrow();
+    await expect(
+      acceptInvitation(t.db, "00000000-0000-0000-0000-000000000000", guest.user.id),
+    ).rejects.toThrow();
+  });
 });
