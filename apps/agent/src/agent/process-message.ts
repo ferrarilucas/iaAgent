@@ -74,7 +74,7 @@ export async function processMessage(deps: ProcessDeps, incoming: IncomingMessag
     if (firstContact) {
       await deps.sendText(
         incoming.fromNumber,
-        "Oi! Sou seu assistente financeiro. Me manda seus gastos por texto, audio, foto ou PDF (ex: 'gastei 50 no almoco') que eu registro. Pergunte tambem 'quanto gastei em alimentacao esse mes?'.",
+        "Eai! 👋 Eu sou o *Pilinha*, teu parceiro pra cuidar da grana aqui no zap 💸\n\nSo me mandar teus gastos por texto, audio, foto ou PDF (ex: 'gastei 40 pila de gasolina hoje') que eu ja anoto. E quando quiser, me pergunta tipo 'quanto gastei em alimentacao esse mes?' que eu te falo. Bora?",
       );
     }
   } catch (err) {
