@@ -9,7 +9,9 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "start:agent": "pnpm --filter @ia/db db:migrate && pnpm --filter @ia/agent start",
-    "start:web": "pnpm --filter @ia/web start"
+    "start:web": "pnpm --filter @ia/web start",
+    "dev:agent": "pnpm --filter @ia/db db:migrate && pnpm --filter @ia/agent dev",
+    "dev:web": "pnpm --filter @ia/web dev"
   },
   "devDependencies": {
     "turbo": "^2.1.0",
