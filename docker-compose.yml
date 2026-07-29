@@ -9,6 +9,17 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+  agent:
+    build:
+      context: .
+      dockerfile: apps/agent/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://ia:ia@postgres:5432/ia_agent
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
 
 volumes:
   pgdata:

@@ -9,6 +9,8 @@ Monorepo do agente financeiro de WhatsApp.
 3. `docker compose up -d postgres`
 4. `pnpm --filter @ia/db db:migrate`
 5. `pnpm test`
+6. Configure o webhook da sua instancia Evolution para POST http://<host>:3001/webhook (evento MESSAGES_UPSERT)
+7. `pnpm --filter @ia/agent dev` para rodar o agente localmente
 
 ## Pacotes
 
