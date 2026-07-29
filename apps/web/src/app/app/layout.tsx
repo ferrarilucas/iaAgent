@@ -1,21 +1,29 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { requireContext } from "@/lib/session";
+import { PilinhaLogo } from "@/components/logo";
+import { Nav } from "@/components/nav";
+import { UserMenu } from "@/components/user-menu";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const ctx = await requireContext();
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b p-4">
-        <span className="font-bold">Pilinha</span>
-        <nav className="flex gap-4 text-sm">
-          <Link href="/app">Inicio</Link>
-          <Link href="/app/transacoes">Transacoes</Link>
-          <Link href="/app/espacos">Espacos</Link>
-        </nav>
-        <span className="text-sm text-gray-500">{ctx.userName ?? ""}</span>
+      <header className="sticky top-0 z-20 border-b border-cream-200 bg-cream-100/80 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+          <Link href="/app" className="shrink-0">
+            <PilinhaLogo />
+          </Link>
+          <div className="hidden md:block">
+            <Nav />
+          </div>
+          <UserMenu name={ctx.userName} />
+        </div>
+        <div className="mx-auto max-w-5xl px-4 pb-3 md:hidden">
+          <Nav />
+        </div>
       </header>
-      <main className="mx-auto max-w-4xl p-4">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
     </div>
   );
 }

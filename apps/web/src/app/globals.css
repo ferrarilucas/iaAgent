@@ -1,3 +1,54 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-cream-100 text-ink antialiased;
+    background-image:
+      radial-gradient(60rem 40rem at 100% -10%, rgba(198, 161, 91, 0.14), transparent 55%),
+      radial-gradient(50rem 40rem at -10% 0%, rgba(22, 58, 91, 0.08), transparent 50%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-gold-200 text-navy-800;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-cream-200 bg-white/90 shadow-card backdrop-blur-sm;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-100 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-navy-700 text-white hover:bg-navy-600 active:bg-navy-800 shadow-soft;
+  }
+  .btn-gold {
+    @apply btn bg-gold-500 text-navy-900 hover:bg-gold-400 active:bg-gold-600 shadow-soft;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink-muted hover:bg-cream-200/70 hover:text-navy-700;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-cream-300 bg-white px-3.5 py-2.5 text-sm text-ink shadow-soft outline-none transition placeholder:text-ink-soft focus:border-gold-400 focus:ring-2 focus:ring-gold-400/30;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

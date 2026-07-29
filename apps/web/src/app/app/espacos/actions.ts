@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createInvitation, acceptInvitation } from "@ia/db";
-import { sendText } from "@ia/whatsapp";
+import { sendText, normalizeBrazilNumber } from "@ia/whatsapp";
 import { requireContext } from "@/lib/session";
 import { db } from "@/lib/db";
 import { env } from "@/env";
@@ -14,8 +14,9 @@ const evolution = {
 
 export async function convidar(formData: FormData) {
   const ctx = await requireContext();
-  const numero = String(formData.get("numero") ?? "").trim();
-  if (!numero) return;
+  const bruto = String(formData.get("numero") ?? "").trim();
+  if (!bruto) return;
+  const numero = normalizeBrazilNumber(bruto);
   await createInvitation(db, { spaceId: ctx.spaceId, invitedBy: ctx.userId, invitedNumber: numero });
   await sendText(evolution, numero, "Voce foi convidado para compartilhar as contas no Pilinha. Abra o painel para aceitar.").catch(() => {});
   revalidatePath("/app/espacos");

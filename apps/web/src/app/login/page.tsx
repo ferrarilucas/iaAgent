@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { normalizeBrazilNumber } from "@ia/whatsapp";
+import { PilinhaLogo } from "@/components/logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,36 +11,109 @@ export default function LoginPage() {
   const [codigo, setCodigo] = useState("");
   const [etapa, setEtapa] = useState<"numero" | "codigo">("numero");
   const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
   async function pedirCodigo() {
     setErro("");
+    setCarregando(true);
     const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: normalizeBrazilNumber(numero) });
-    if (error) { setErro(`${error.message ?? "Falha ao enviar"} [${error.status ?? "?"}${error.code ? " " + error.code : ""}]`); return; }
+    setCarregando(false);
+    if (error) {
+      setErro(`${error.message ?? "Falha ao enviar"} [${error.status ?? "?"}${error.code ? " " + error.code : ""}]`);
+      return;
+    }
     setEtapa("codigo");
   }
 
   async function verificar() {
     setErro("");
+    setCarregando(true);
     const { error } = await authClient.phoneNumber.verify({ phoneNumber: normalizeBrazilNumber(numero), code: codigo });
-    if (error) { setErro(`${error.message ?? "Falha na verificacao"} [${error.status ?? "?"}${error.code ? " " + error.code : ""}]`); return; }
+    setCarregando(false);
+    if (error) {
+      setErro(`${error.message ?? "Falha na verificação"} [${error.status ?? "?"}${error.code ? " " + error.code : ""}]`);
+      return;
+    }
     router.push("/app");
+    router.refresh();
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 p-6">
-      <h1 className="text-2xl font-bold">Entrar no painel</h1>
-      {etapa === "numero" ? (
-        <>
-          <input className="rounded border p-3" placeholder="Seu numero (ex: 5511999999999)" value={numero} onChange={(e) => setNumero(e.target.value)} />
-          <button className="rounded bg-black p-3 text-white" onClick={pedirCodigo}>Enviar codigo no WhatsApp</button>
-        </>
-      ) : (
-        <>
-          <input className="rounded border p-3" placeholder="Codigo de 6 digitos" value={codigo} onChange={(e) => setCodigo(e.target.value)} />
-          <button className="rounded bg-black p-3 text-white" onClick={verificar}>Entrar</button>
-        </>
-      )}
-      {erro ? <p className="text-red-600">{erro}</p> : null}
+    <main className="flex min-h-screen items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex justify-center">
+          <PilinhaLogo tagline />
+        </div>
+
+        <div className="card p-7">
+          {etapa === "numero" ? (
+            <div className="flex flex-col gap-5">
+              <div>
+                <h1 className="text-lg font-bold text-navy-800">Entrar no painel</h1>
+                <p className="mt-1 text-sm text-ink-muted">Enviamos um código pelo seu WhatsApp.</p>
+              </div>
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-muted">
+                Seu número
+                <input
+                  className="field"
+                  inputMode="tel"
+                  autoFocus
+                  placeholder="51 99999-9999"
+                  value={numero}
+                  onChange={(e) => setNumero(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && numero && pedirCodigo()}
+                />
+              </label>
+              <button className="btn-gold w-full" onClick={pedirCodigo} disabled={carregando || !numero}>
+                {carregando ? "Enviando…" : "Enviar código no WhatsApp"}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-5">
+              <div>
+                <h1 className="text-lg font-bold text-navy-800">Confirme o código</h1>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Enviado para <span className="font-semibold text-navy-700">{numero}</span>.
+                </p>
+              </div>
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-muted">
+                Código de 6 dígitos
+                <input
+                  className="field text-center text-lg font-semibold tracking-[0.4em]"
+                  inputMode="numeric"
+                  autoFocus
+                  maxLength={6}
+                  placeholder="••••••"
+                  value={codigo}
+                  onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={(e) => e.key === "Enter" && codigo && verificar()}
+                />
+              </label>
+              <button className="btn-gold w-full" onClick={verificar} disabled={carregando || codigo.length < 4}>
+                {carregando ? "Verificando…" : "Entrar"}
+              </button>
+              <button
+                className="text-center text-sm font-medium text-ink-soft hover:text-navy-700"
+                onClick={() => {
+                  setEtapa("numero");
+                  setCodigo("");
+                  setErro("");
+                }}
+              >
+                ← Usar outro número
+              </button>
+            </div>
+          )}
+
+          {erro ? (
+            <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger">{erro}</p>
+          ) : null}
+        </div>
+
+        <p className="mt-6 text-center text-xs text-ink-soft">
+          Ao entrar, você usa o mesmo número do seu WhatsApp com a pilinha.
+        </p>
+      </div>
     </main>
   );
 }
