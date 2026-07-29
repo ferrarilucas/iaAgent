@@ -20,6 +20,8 @@ export type ProcessDeps = {
   db: Db;
   runAgent: (args: RunAgentArgs) => Promise<string>;
   sendText: (toNumber: string, text: string) => Promise<void>;
+  markAsRead: (message: { remoteJid: string; id: string; fromMe: boolean }) => Promise<void>;
+  setTyping: (toNumber: string) => Promise<void>;
 };
 
 const FALLBACK_TEXT = "Nao consegui processar sua mensagem agora. Pode tentar de novo?";
@@ -28,6 +30,10 @@ export async function processMessage(deps: ProcessDeps, incoming: IncomingMessag
   if (incoming.fromMe) return;
   const claimed = await markMessageProcessed(deps.db, incoming.messageId);
   if (!claimed) return;
+
+  await deps
+    .markAsRead({ remoteJid: incoming.remoteJid, id: incoming.messageId, fromMe: incoming.fromMe })
+    .catch(() => {});
 
   if (incoming.kind === "unsupported") {
     await deps.sendText(incoming.fromNumber, "Por enquanto eu entendo texto, audio, foto, video e PDF. Pode mandar assim?");
@@ -52,6 +58,8 @@ export async function processMessage(deps: ProcessDeps, incoming: IncomingMessag
         spaceId = space.id;
       }
     }
+
+    await deps.setTyping(incoming.fromNumber).catch(() => {});
 
     const reply = await deps.runAgent({
       db: deps.db,

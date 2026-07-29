@@ -2,6 +2,7 @@ import type { AppConfig } from "../config";
 
 export type IncomingMessage = {
   messageId: string;
+  remoteJid: string;
   fromNumber: string;
   fromMe: boolean;
   pushName?: string;
@@ -20,6 +21,7 @@ export function parseUpsert(payload: unknown): IncomingMessage | null {
   if (!data || !key || typeof key.id !== "string" || typeof key.remoteJid !== "string") return null;
   const base = {
     messageId: key.id as string,
+    remoteJid: key.remoteJid as string,
     fromNumber: numberFromJid(key.remoteJid),
     fromMe: Boolean(key.fromMe),
     pushName: typeof data.pushName === "string" ? data.pushName : undefined,
@@ -60,4 +62,38 @@ export async function sendText(config: AppConfig, toNumber: string, text: string
     body: JSON.stringify({ number: toNumber, text }),
   });
   if (!res.ok) throw new Error(`evolution sendText ${res.status}`);
+}
+
+export async function markAsRead(
+  config: AppConfig,
+  message: { remoteJid: string; id: string; fromMe: boolean },
+): Promise<void> {
+  try {
+    await fetch(`${config.evolutionApiUrl}/chat/markMessageAsRead/${config.evolutionInstance}`, {
+      method: "POST",
+      headers: { apikey: config.evolutionApiKey, "content-type": "application/json" },
+      body: JSON.stringify({
+        readMessages: [{ remoteJid: message.remoteJid, fromMe: message.fromMe, id: message.id }],
+      }),
+    });
+  } catch {
+    return;
+  }
+}
+
+export async function sendPresence(
+  config: AppConfig,
+  toNumber: string,
+  presence: "composing" | "paused" | "available",
+  delayMs = 3000,
+): Promise<void> {
+  try {
+    await fetch(`${config.evolutionApiUrl}/chat/sendPresence/${config.evolutionInstance}`, {
+      method: "POST",
+      headers: { apikey: config.evolutionApiKey, "content-type": "application/json" },
+      body: JSON.stringify({ number: toNumber, presence, delay: delayMs }),
+    });
+  } catch {
+    return;
+  }
 }

@@ -1,6 +1,6 @@
 import type { Db } from "@ia/db";
 import type { AppConfig } from "../config";
-import { parseUpsert, fetchMediaBase64, sendText, type IncomingMessage } from "./evolution";
+import { parseUpsert, fetchMediaBase64, sendText, markAsRead, sendPresence, type IncomingMessage } from "./evolution";
 import { createTools } from "../agent/tools";
 import { buildAgent } from "../agent/agent";
 import { buildMemory } from "../agent/memory";
@@ -39,6 +39,8 @@ export function createHandlerDeps(db: Db, config: AppConfig) {
     db,
     runAgent,
     sendText: (toNumber: string, text: string) => sendText(config, toNumber, text),
+    markAsRead: (message: { remoteJid: string; id: string; fromMe: boolean }) => markAsRead(config, message),
+    setTyping: (toNumber: string) => sendPresence(config, toNumber, "composing", 3000),
   };
 }
 
