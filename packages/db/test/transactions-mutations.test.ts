@@ -4,6 +4,7 @@ import { bootstrapUser } from "../src/repository/users";
 import { seedCategories, findCategoryByName } from "../src/repository/categories";
 import { insertTransactions } from "../src/repository/transactions";
 import { updateTransaction, deleteTransaction, getLastTransactionForUser } from "../src/repository/transactions";
+import { transactions } from "../src/schema";
 
 let close: (() => Promise<void>) | undefined;
 afterEach(async () => { if (close) await close(); });
@@ -14,9 +15,9 @@ describe("transactions mutations", () => {
     const { user, space } = await bootstrapUser(t.db, { whatsappNumber: "51", name: "L" });
     await seedCategories(t.db, space.id);
     const alim = await findCategoryByName(t.db, space.id, "alimentacao", "despesa");
-    await insertTransactions(t.db, [
-      { createdBy: user.id, type: "despesa", amount: "10.00", categoryId: alim!.id, occurredAt: "2026-07-01", source: "texto" },
-      { createdBy: user.id, type: "despesa", amount: "20.00", categoryId: alim!.id, occurredAt: "2026-07-02", source: "texto" },
+    await t.db.insert(transactions).values([
+      { createdBy: user.id, type: "despesa", amount: "10.00", categoryId: alim!.id, occurredAt: "2026-07-01", source: "texto", createdAt: new Date("2026-07-01T10:00:00Z") },
+      { createdBy: user.id, type: "despesa", amount: "20.00", categoryId: alim!.id, occurredAt: "2026-07-02", source: "texto", createdAt: new Date("2026-07-01T10:00:01Z") },
     ]);
     const last = await getLastTransactionForUser(t.db, user.id);
     expect(last?.amount).toBe("20.00");

@@ -95,7 +95,7 @@ export async function getLastTransactionForUser(db: Db, userId: string): Promise
     .select()
     .from(transactions)
     .where(eq(transactions.createdBy, userId))
-    .orderBy(desc(transactions.occurredAt), desc(transactions.createdAt))
+    .orderBy(desc(transactions.createdAt))
     .limit(1);
   return rows[0];
 }
