@@ -65,3 +65,8 @@ export const invitations = pgTable("invitations", {
   status: inviteStatusEnum("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const processedMessages = pgTable("processed_messages", {
+  messageId: text("message_id").primaryKey(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).defaultNow().notNull(),
+});

@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, lte, inArray, sql, desc } from "drizzle-orm";
 import type { Db } from "../client";
 import { transactions } from "../schema";
 import type { Transaction } from "../types";
@@ -68,4 +68,34 @@ export async function sumByCategory(
       ),
     )
     .groupBy(transactions.categoryId);
+}
+
+export async function updateTransaction(
+  db: Db,
+  id: string,
+  patch: Partial<{
+    type: "despesa" | "receita";
+    amount: string;
+    categoryId: string;
+    description: string;
+    occurredAt: string;
+    source: "texto" | "audio" | "foto" | "video" | "pdf";
+  }>,
+): Promise<Transaction | undefined> {
+  const [row] = await db.update(transactions).set(patch).where(eq(transactions.id, id)).returning();
+  return row;
+}
+
+export async function deleteTransaction(db: Db, id: string): Promise<void> {
+  await db.delete(transactions).where(eq(transactions.id, id));
+}
+
+export async function getLastTransactionForUser(db: Db, userId: string): Promise<Transaction | undefined> {
+  const rows = await db
+    .select()
+    .from(transactions)
+    .where(eq(transactions.createdBy, userId))
+    .orderBy(desc(transactions.occurredAt), desc(transactions.createdAt))
+    .limit(1);
+  return rows[0];
 }
