@@ -25,6 +25,7 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").default(false).notNull(),
   phoneNumber: text("phone_number"),
   phoneNumberVerified: boolean("phone_number_verified").default(false).notNull(),
+  image: text("image"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
