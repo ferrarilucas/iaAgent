@@ -1,10 +1,17 @@
 import { betterAuth } from "better-auth";
 import { phoneNumber } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { createClient, schema } from "@ia/db";
+import { nextCookies } from "better-auth/next-js";
+import { schema } from "@ia/db";
+import { sendText } from "@ia/whatsapp";
+import { db } from "./db";
 import { env } from "../env";
 
-const { db } = createClient(env.DATABASE_URL);
+const evolution = {
+  evolutionApiUrl: env.EVOLUTION_API_URL,
+  evolutionInstance: env.EVOLUTION_INSTANCE,
+  evolutionApiKey: env.EVOLUTION_API_KEY,
+};
 
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
@@ -23,7 +30,10 @@ export const auth = betterAuth({
   },
   plugins: [
     phoneNumber({
-      sendOTP: async () => {},
+      sendOTP: async ({ phoneNumber: number, code }) => {
+        await sendText(evolution, number, `Seu codigo de acesso ao painel: ${code}`);
+      },
     }),
+    nextCookies(),
   ],
 });
