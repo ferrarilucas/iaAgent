@@ -1,3 +1,5 @@
+import { normalizeBrazilNumber } from "./number";
+
 export type EvolutionConfig = {
   evolutionApiUrl: string;
   evolutionInstance: string;
@@ -16,7 +18,7 @@ export type IncomingMessage = {
 };
 
 function numberFromJid(jid: string): string {
-  return jid.split("@")[0].split(":")[0];
+  return normalizeBrazilNumber(jid.split("@")[0].split(":")[0]);
 }
 
 export function parseUpsert(payload: unknown): IncomingMessage | null {

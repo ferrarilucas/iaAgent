@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { normalizeBrazilNumber } from "@ia/whatsapp";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,14 +13,14 @@ export default function LoginPage() {
 
   async function pedirCodigo() {
     setErro("");
-    const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: numero });
+    const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: normalizeBrazilNumber(numero) });
     if (error) { setErro(`${error.message ?? "Falha ao enviar"} [${error.status ?? "?"}${error.code ? " " + error.code : ""}]`); return; }
     setEtapa("codigo");
   }
 
   async function verificar() {
     setErro("");
-    const { error } = await authClient.phoneNumber.verify({ phoneNumber: numero, code: codigo });
+    const { error } = await authClient.phoneNumber.verify({ phoneNumber: normalizeBrazilNumber(numero), code: codigo });
     if (error) { setErro(`${error.message ?? "Falha na verificacao"} [${error.status ?? "?"}${error.code ? " " + error.code : ""}]`); return; }
     router.push("/app");
   }

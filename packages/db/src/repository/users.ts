@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "../client";
-import { users, spaces, spaceMembers } from "../schema";
+import { users, spaces, spaceMembers, categories } from "../schema";
 import type { User, Space } from "../types";
+import { DEFAULT_CATEGORIES } from "./categories";
 
 export async function getUserByWhatsappNumber(
   db: Db,
@@ -28,6 +29,17 @@ export async function bootstrapUser(
     const [space] = await tx.insert(spaces).values({ name: spaceName }).returning();
     await tx.insert(spaceMembers).values({ spaceId: space.id, userId: user.id, role: "owner" });
     return { user, space };
+  });
+}
+
+export async function ensureSpaceForUser(db: Db, userId: string, name?: string | null): Promise<Space> {
+  const existing = await getSpaceForUser(db, userId);
+  if (existing) return existing;
+  return db.transaction(async (tx) => {
+    const [space] = await tx.insert(spaces).values({ name: `Pessoal do ${name ?? "usuario"}` }).returning();
+    await tx.insert(spaceMembers).values({ spaceId: space.id, userId, role: "owner" });
+    await tx.insert(categories).values(DEFAULT_CATEGORIES.map((c) => ({ ...c, spaceId: space.id })));
+    return space;
   });
 }
 
