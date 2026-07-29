@@ -25,6 +25,7 @@ export async function aceitar(formData: FormData) {
   const ctx = await requireContext();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await acceptInvitation(db, id, ctx.userId);
+  if (!ctx.phoneNumber) return;
+  await acceptInvitation(db, id, ctx.userId, ctx.phoneNumber);
   revalidatePath("/app/espacos");
 }

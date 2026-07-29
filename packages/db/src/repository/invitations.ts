@@ -28,6 +28,7 @@ export async function acceptInvitation(
   db: Db,
   invitationId: string,
   acceptingUserId: string,
+  acceptingNumber: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
     const [invite] = await tx
@@ -37,6 +38,9 @@ export async function acceptInvitation(
       .limit(1);
     if (!invite || invite.status !== "pending") {
       throw new Error("convite invalido ou ja respondido");
+    }
+    if (invite.invitedNumber !== acceptingNumber) {
+      throw new Error("convite invalido ou nao pertence a este usuario");
     }
     await tx.update(invitations).set({ status: "accepted" }).where(eq(invitations.id, invitationId));
     await tx.delete(spaceMembers).where(eq(spaceMembers.userId, acceptingUserId));
