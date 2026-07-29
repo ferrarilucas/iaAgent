@@ -2,7 +2,9 @@ import { describe, it, expect, afterEach } from "vitest";
 import { createTestDb } from "./helpers";
 import { bootstrapUser } from "../src/repository/users";
 import { seedCategories, findCategoryByName } from "../src/repository/categories";
-import { createBudget, listBudgetsForUser, listBudgetsForSpace, updateBudget, deleteBudget } from "../src/repository/budgets";
+import { createBudget, listBudgetsForUser, listBudgetsForSpace, updateBudget, deleteBudget, getBudgetStatus } from "../src/repository/budgets";
+import { insertTransactions } from "../src/repository/transactions";
+import { spaceMembers } from "../src/schema";
 
 let close: (() => Promise<void>) | undefined;
 afterEach(async () => { if (close) await close(); });
@@ -35,5 +37,29 @@ describe("budgets repository", () => {
     expect(upd?.amount).toBe("350.00");
     await deleteBudget(t.db, b.id);
     expect(await listBudgetsForUser(t.db, user.id)).toHaveLength(0);
+  });
+
+  it("status pessoal soma so o proprio usuario; status do espaco soma todos", async () => {
+    const t = await createTestDb(); close = t.close;
+    const a = await bootstrapUser(t.db, { whatsappNumber: "111", name: "A" });
+    const b = await bootstrapUser(t.db, { whatsappNumber: "222", name: "B" });
+    await seedCategories(t.db, a.space.id);
+    await t.db.insert(spaceMembers).values({ spaceId: a.space.id, userId: b.user.id, role: "member" });
+    const alim = await findCategoryByName(t.db, a.space.id, "alimentacao", "despesa");
+    await insertTransactions(t.db, [
+      { createdBy: a.user.id, type: "despesa", amount: "100.00", categoryId: alim!.id, occurredAt: "2026-07-10", source: "texto" },
+      { createdBy: b.user.id, type: "despesa", amount: "40.00", categoryId: alim!.id, occurredAt: "2026-07-11", source: "texto" },
+    ]);
+
+    const pessoal = await createBudget(t.db, { categoryId: alim!.id, amount: "200.00", scope: "user", userId: a.user.id });
+    const doEspaco = await createBudget(t.db, { categoryId: alim!.id, amount: "200.00", scope: "space", spaceId: a.space.id });
+
+    const sp = await getBudgetStatus(t.db, pessoal, "2026-07-01", "2026-07-31");
+    expect(sp.spent).toBe("100.00");
+    expect(sp.ratio).toBeCloseTo(0.5);
+
+    const ss = await getBudgetStatus(t.db, doEspaco, "2026-07-01", "2026-07-31");
+    expect(ss.spent).toBe("140.00");
+    expect(ss.ratio).toBeCloseTo(0.7);
   });
 });
