@@ -6,4 +6,4 @@ COPY packages/db/package.json packages/db/package.json
 COPY apps/agent/package.json apps/agent/package.json
 RUN pnpm install --frozen-lockfile
 COPY . .
-CMD ["pnpm", "--filter", "@ia/agent", "start"]
+CMD ["pnpm", "start:agent"]
