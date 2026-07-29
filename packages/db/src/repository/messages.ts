@@ -11,6 +11,11 @@ export async function isMessageProcessed(db: Db, messageId: string): Promise<boo
   return rows.length > 0;
 }
 
-export async function markMessageProcessed(db: Db, messageId: string): Promise<void> {
-  await db.insert(processedMessages).values({ messageId }).onConflictDoNothing();
+export async function markMessageProcessed(db: Db, messageId: string): Promise<boolean> {
+  const rows = await db
+    .insert(processedMessages)
+    .values({ messageId })
+    .onConflictDoNothing()
+    .returning({ messageId: processedMessages.messageId });
+  return rows.length > 0;
 }

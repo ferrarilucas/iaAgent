@@ -4,7 +4,6 @@ import {
   bootstrapUser,
   seedCategories,
   getSpaceForUser,
-  isMessageProcessed,
   markMessageProcessed,
 } from "@ia/db";
 import type { IncomingMessage } from "../webhook/evolution";
@@ -23,48 +22,59 @@ export type ProcessDeps = {
   sendText: (toNumber: string, text: string) => Promise<void>;
 };
 
+const FALLBACK_TEXT = "Nao consegui processar sua mensagem agora. Pode tentar de novo?";
+
 export async function processMessage(deps: ProcessDeps, incoming: IncomingMessage): Promise<void> {
   if (incoming.fromMe) return;
-  if (await isMessageProcessed(deps.db, incoming.messageId)) return;
-  await markMessageProcessed(deps.db, incoming.messageId);
+  const claimed = await markMessageProcessed(deps.db, incoming.messageId);
+  if (!claimed) return;
 
   if (incoming.kind === "unsupported") {
     await deps.sendText(incoming.fromNumber, "Por enquanto eu entendo texto, audio, foto, video e PDF. Pode mandar assim?");
     return;
   }
 
-  let user = await getUserByWhatsappNumber(deps.db, incoming.fromNumber);
-  let spaceId: string;
-  const firstContact = !user;
-  if (!user) {
-    const created = await bootstrapUser(deps.db, { whatsappNumber: incoming.fromNumber, name: incoming.pushName });
-    await seedCategories(deps.db, created.space.id);
-    user = created.user;
-    spaceId = created.space.id;
-  } else {
-    const space = await getSpaceForUser(deps.db, user.id);
-    if (!space) {
+  try {
+    let user = await getUserByWhatsappNumber(deps.db, incoming.fromNumber);
+    let spaceId: string;
+    const firstContact = !user;
+    if (!user) {
       const created = await bootstrapUser(deps.db, { whatsappNumber: incoming.fromNumber, name: incoming.pushName });
+      await seedCategories(deps.db, created.space.id);
+      user = created.user;
       spaceId = created.space.id;
     } else {
-      spaceId = space.id;
+      const space = await getSpaceForUser(deps.db, user.id);
+      if (!space) {
+        const created = await bootstrapUser(deps.db, { whatsappNumber: incoming.fromNumber, name: incoming.pushName });
+        spaceId = created.space.id;
+      } else {
+        spaceId = space.id;
+      }
     }
-  }
 
-  const reply = await deps.runAgent({
-    db: deps.db,
-    userId: user.id,
-    spaceId,
-    threadId: incoming.fromNumber,
-    incoming,
-  });
+    const reply = await deps.runAgent({
+      db: deps.db,
+      userId: user.id,
+      spaceId,
+      threadId: incoming.fromNumber,
+      incoming,
+    });
 
-  await deps.sendText(incoming.fromNumber, reply);
+    await deps.sendText(incoming.fromNumber, reply);
 
-  if (firstContact) {
-    await deps.sendText(
-      incoming.fromNumber,
-      "Oi! Sou seu assistente financeiro. Me manda seus gastos por texto, audio, foto ou PDF (ex: 'gastei 50 no almoco') que eu registro. Pergunte tambem 'quanto gastei em alimentacao esse mes?'.",
-    );
+    if (firstContact) {
+      await deps.sendText(
+        incoming.fromNumber,
+        "Oi! Sou seu assistente financeiro. Me manda seus gastos por texto, audio, foto ou PDF (ex: 'gastei 50 no almoco') que eu registro. Pergunte tambem 'quanto gastei em alimentacao esse mes?'.",
+      );
+    }
+  } catch (err) {
+    console.error(err);
+    try {
+      await deps.sendText(incoming.fromNumber, FALLBACK_TEXT);
+    } catch (sendErr) {
+      console.error(sendErr);
+    }
   }
 }

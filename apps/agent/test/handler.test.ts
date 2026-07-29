@@ -38,4 +38,16 @@ describe("processMessage", () => {
     await processMessage({ db: t.db, runAgent, sendText }, incoming);
     expect(runAgent).toHaveBeenCalledTimes(1);
   });
+
+  it("envia fallback e nao rejeita quando runAgent falha", async () => {
+    const t = await createTestDb(); close = t.close;
+    const runAgent = vi.fn(async () => { throw new Error("gemini indisponivel"); });
+    const sent: string[] = [];
+    const sendText = vi.fn(async (_n: string, text: string) => { sent.push(text); });
+    const incoming: IncomingMessage = { messageId: "FAIL1", fromNumber: "5511", fromMe: false, kind: "texto", text: "gastei 50 no almoco" };
+
+    await expect(processMessage({ db: t.db, runAgent, sendText }, incoming)).resolves.toBeUndefined();
+
+    expect(sent.some((text) => text.includes("tentar de novo"))).toBe(true);
+  });
 });

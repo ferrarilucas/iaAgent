@@ -9,14 +9,14 @@ describe("processed messages", () => {
   it("marca e detecta idempotencia", async () => {
     const t = await createTestDb(); close = t.close;
     expect(await isMessageProcessed(t.db, "ABC")).toBe(false);
-    await markMessageProcessed(t.db, "ABC");
+    expect(await markMessageProcessed(t.db, "ABC")).toBe(true);
     expect(await isMessageProcessed(t.db, "ABC")).toBe(true);
   });
 
-  it("markMessageProcessed e idempotente (nao lanca em duplicata)", async () => {
+  it("markMessageProcessed reivindica atomicamente (segunda chamada retorna false)", async () => {
     const t = await createTestDb(); close = t.close;
-    await markMessageProcessed(t.db, "X");
-    await markMessageProcessed(t.db, "X");
+    expect(await markMessageProcessed(t.db, "X")).toBe(true);
+    expect(await markMessageProcessed(t.db, "X")).toBe(false);
     expect(await isMessageProcessed(t.db, "X")).toBe(true);
   });
 });
