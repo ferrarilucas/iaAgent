@@ -13,14 +13,14 @@ export default function LoginPage() {
   async function pedirCodigo() {
     setErro("");
     const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: numero });
-    if (error) { setErro("Nao consegui enviar o codigo. Confere o numero."); return; }
+    if (error) { setErro(`${error.message ?? "Falha ao enviar"} [${error.status ?? "?"}${error.code ? " " + error.code : ""}]`); return; }
     setEtapa("codigo");
   }
 
   async function verificar() {
     setErro("");
     const { error } = await authClient.phoneNumber.verify({ phoneNumber: numero, code: codigo });
-    if (error) { setErro("Codigo invalido."); return; }
+    if (error) { setErro(`${error.message ?? "Falha na verificacao"} [${error.status ?? "?"}${error.code ? " " + error.code : ""}]`); return; }
     router.push("/app");
   }
 
