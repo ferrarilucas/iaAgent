@@ -18,7 +18,11 @@ export async function bootstrapUser(
   return db.transaction(async (tx) => {
     const [user] = await tx
       .insert(users)
-      .values({ whatsappNumber: input.whatsappNumber, name: input.name ?? null })
+      .values({
+        whatsappNumber: input.whatsappNumber,
+        name: input.name ?? null,
+        phoneNumber: input.whatsappNumber,
+      })
       .returning();
     const spaceName = `Pessoal do ${input.name ?? "usuario"}`;
     const [space] = await tx.insert(spaces).values({ name: spaceName }).returning();
