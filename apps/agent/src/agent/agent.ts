@@ -13,9 +13,10 @@ const PERSONA = [
 
 export function buildAgent(memory: Memory, tools: ReturnType<typeof createTools>): Agent {
   return new Agent({
+    id: "assistente-financeiro",
     name: "assistente-financeiro",
     instructions: PERSONA,
-    model: google("gemini-2.5-flash"),
+    model: google("gemini-flash-latest"),
     tools,
     memory,
   });

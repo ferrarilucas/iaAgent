@@ -27,11 +27,10 @@ export function createHandlerDeps(db: Db, config: AppConfig) {
     const content: any[] = [{ type: "text", text: args.incoming.text ?? "" }];
     if (args.incoming.kind !== "texto") {
       const base64 = await fetchMediaBase64(config, args.incoming.messageId);
-      content.push({ type: "file", mimeType: MEDIA_MIME[args.incoming.kind], data: base64 });
+      content.push({ type: "file", mediaType: MEDIA_MIME[args.incoming.kind], data: base64 });
     }
     const res = await agent.generate([{ role: "user", content }], {
-      threadId: args.threadId,
-      resourceId: args.threadId,
+      memory: { thread: args.threadId, resource: args.threadId },
     });
     return res.text;
   };

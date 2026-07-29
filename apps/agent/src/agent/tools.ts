@@ -97,7 +97,7 @@ export function createTools(db: Db, userId: string, spaceId: string) {
       id: "registrar_transacao",
       description: "Registra um ou mais lancamentos financeiros (despesa ou receita).",
       inputSchema: z.object({ itens: z.array(itemSchema) }),
-      execute: async ({ context }) => registrarTransacaoImpl(db, { userId, spaceId, itens: context.itens }),
+      execute: async (inputData) => registrarTransacaoImpl(db, { userId, spaceId, itens: inputData.itens }),
     }),
     consultar_transacoes: createTool({
       id: "consultar_transacoes",
@@ -107,7 +107,7 @@ export function createTools(db: Db, userId: string, spaceId: string) {
         to: z.string().optional(),
         type: z.enum(["despesa", "receita"]).optional(),
       }),
-      execute: async ({ context }) => consultarImpl(db, { spaceId, ...context }),
+      execute: async (inputData) => consultarImpl(db, { spaceId, ...inputData }),
     }),
     resumo: createTool({
       id: "resumo",
@@ -117,7 +117,7 @@ export function createTools(db: Db, userId: string, spaceId: string) {
         to: z.string(),
         type: z.enum(["despesa", "receita"]),
       }),
-      execute: async ({ context }) => resumoImpl(db, { spaceId, ...context }),
+      execute: async (inputData) => resumoImpl(db, { spaceId, ...inputData }),
     }),
     corrigir_ultima_transacao: createTool({
       id: "corrigir_ultima_transacao",
@@ -129,7 +129,7 @@ export function createTools(db: Db, userId: string, spaceId: string) {
         description: z.string().optional(),
         occurredAt: z.string().optional(),
       }),
-      execute: async ({ context }) => corrigirUltimaImpl(db, { userId, spaceId, ...context }),
+      execute: async (inputData) => corrigirUltimaImpl(db, { userId, spaceId, ...inputData }),
     }),
     apagar_ultima_transacao: createTool({
       id: "apagar_ultima_transacao",
