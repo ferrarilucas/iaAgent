@@ -32,3 +32,14 @@ export async function findCategoryByName(
     .limit(1);
   return rows[0];
 }
+
+export async function listCategoriesForSpace(
+  db: Db,
+  spaceId: string,
+): Promise<Array<{ id: string; name: string; type: "despesa" | "receita" }>> {
+  const rows = await db
+    .select({ id: categories.id, name: categories.name, type: categories.type })
+    .from(categories)
+    .where(eq(categories.spaceId, spaceId));
+  return rows.map((r) => ({ id: r.id, name: r.name, type: r.type }));
+}
