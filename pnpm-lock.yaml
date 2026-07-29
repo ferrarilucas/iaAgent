@@ -26,6 +26,9 @@ importers:
       '@ia/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ia/whatsapp':
+        specifier: workspace:*
+        version: link:../../packages/whatsapp
       '@mastra/core':
         specifier: ^1.0.0
         version: 1.54.0(@grpc/grpc-js@1.14.4)(express@5.2.1)(zod@3.25.76)
@@ -73,6 +76,15 @@ importers:
       drizzle-kit:
         specifier: ^0.28.0
         version: 0.28.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/whatsapp:
+    devDependencies:
       typescript:
         specifier: ^5.6.0
         version: 5.9.3

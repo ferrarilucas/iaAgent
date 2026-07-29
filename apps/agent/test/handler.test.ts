@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { createTestDb } from "../../../packages/db/test/helpers";
 import { getUserByWhatsappNumber, listTransactionsForSpace, getSpaceForUser } from "@ia/db";
 import { processMessage } from "../src/agent/process-message";
-import type { IncomingMessage } from "../src/webhook/evolution";
+import type { IncomingMessage } from "@ia/whatsapp";
 
 let close: (() => Promise<void>) | undefined;
 afterEach(async () => { if (close) await close(); vi.restoreAllMocks(); });

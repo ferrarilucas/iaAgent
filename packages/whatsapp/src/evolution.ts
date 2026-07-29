@@ -1,4 +1,8 @@
-import type { AppConfig } from "../config";
+export type EvolutionConfig = {
+  evolutionApiUrl: string;
+  evolutionInstance: string;
+  evolutionApiKey: string;
+};
 
 export type IncomingMessage = {
   messageId: string;
@@ -40,7 +44,7 @@ export function parseUpsert(payload: unknown): IncomingMessage | null {
   return { ...base, kind: "unsupported" };
 }
 
-export async function fetchMediaBase64(config: AppConfig, messageId: string): Promise<string> {
+export async function fetchMediaBase64(config: EvolutionConfig, messageId: string): Promise<string> {
   const res = await fetch(
     `${config.evolutionApiUrl}/chat/getBase64FromMediaMessage/${config.evolutionInstance}`,
     {
@@ -55,7 +59,7 @@ export async function fetchMediaBase64(config: AppConfig, messageId: string): Pr
   return json.base64;
 }
 
-export async function sendText(config: AppConfig, toNumber: string, text: string): Promise<void> {
+export async function sendText(config: EvolutionConfig, toNumber: string, text: string): Promise<void> {
   const res = await fetch(`${config.evolutionApiUrl}/message/sendText/${config.evolutionInstance}`, {
     method: "POST",
     headers: { apikey: config.evolutionApiKey, "content-type": "application/json" },
@@ -65,7 +69,7 @@ export async function sendText(config: AppConfig, toNumber: string, text: string
 }
 
 export async function markAsRead(
-  config: AppConfig,
+  config: EvolutionConfig,
   message: { remoteJid: string; id: string; fromMe: boolean },
 ): Promise<void> {
   try {
@@ -82,7 +86,7 @@ export async function markAsRead(
 }
 
 export async function sendPresence(
-  config: AppConfig,
+  config: EvolutionConfig,
   toNumber: string,
   presence: "composing" | "paused" | "available",
   delayMs = 3000,

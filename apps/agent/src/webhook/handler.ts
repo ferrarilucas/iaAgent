@@ -1,6 +1,6 @@
 import type { Db } from "@ia/db";
 import type { AppConfig } from "../config";
-import { parseUpsert, fetchMediaBase64, sendText, markAsRead, sendPresence, type IncomingMessage } from "./evolution";
+import { parseUpsert, fetchMediaBase64, sendText, markAsRead, sendPresence, type IncomingMessage } from "@ia/whatsapp";
 import { createTools } from "../agent/tools";
 import { buildAgent } from "../agent/agent";
 import { buildMemory } from "../agent/memory";

@@ -1,14 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { parseUpsert, sendText, markAsRead, sendPresence } from "../src/webhook/evolution";
-import type { AppConfig } from "../src/config";
+import { parseUpsert, sendText, markAsRead, sendPresence } from "../src/evolution";
+import type { EvolutionConfig } from "../src/evolution";
 
-const config: AppConfig = {
+const config: EvolutionConfig = {
   evolutionApiUrl: "https://evo.example",
   evolutionInstance: "inst",
   evolutionApiKey: "key",
-  googleApiKey: "g",
-  databaseUrl: "d",
-  port: 3001,
 };
 
 afterEach(() => vi.restoreAllMocks());

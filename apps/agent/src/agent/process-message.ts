@@ -6,7 +6,7 @@ import {
   getSpaceForUser,
   markMessageProcessed,
 } from "@ia/db";
-import type { IncomingMessage } from "../webhook/evolution";
+import type { IncomingMessage } from "@ia/whatsapp";
 
 export type RunAgentArgs = {
   db: Db;
