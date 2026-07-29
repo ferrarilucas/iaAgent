@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
+    "noEmit": true,
     "allowImportingTsExtensions": true
   },
   "include": ["src", "test", "drizzle.config.ts"]
