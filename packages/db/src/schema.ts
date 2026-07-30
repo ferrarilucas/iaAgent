@@ -8,6 +8,7 @@ import {
   timestamp,
   primaryKey,
   boolean,
+  integer,
 } from "drizzle-orm/pg-core";
 
 export const txTypeEnum = pgEnum("tx_type", ["despesa", "receita"]);
@@ -84,6 +85,7 @@ export const budgets = pgTable("budgets", {
   categoryId: uuid("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   scope: budgetScopeEnum("scope").notNull(),
+  referenceDay: integer("reference_day").notNull().default(1),
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
   spaceId: uuid("space_id").references(() => spaces.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

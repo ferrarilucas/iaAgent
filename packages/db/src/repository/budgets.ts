@@ -4,9 +4,26 @@ import { budgets, transactions } from "../schema";
 import type { Budget } from "../types";
 import { getSpaceMemberUserIds } from "./users";
 
+export function budgetCycleRange(referenceDay: number, tz = "America/Sao_Paulo"): { from: string; to: string } {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+  const [y, m, d] = today.split("-").map(Number);
+  const day = Math.min(Math.max(referenceDay || 1, 1), 28);
+  let fromYear = y;
+  let fromMonth = m;
+  if (d < day) {
+    fromMonth -= 1;
+    if (fromMonth === 0) {
+      fromMonth = 12;
+      fromYear -= 1;
+    }
+  }
+  const from = `${fromYear}-${String(fromMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return { from, to: today };
+}
+
 export async function createBudget(
   db: Db,
-  input: { categoryId: string; amount: string; scope: "user" | "space"; userId?: string; spaceId?: string },
+  input: { categoryId: string; amount: string; scope: "user" | "space"; referenceDay?: number; userId?: string; spaceId?: string },
 ): Promise<Budget> {
   const [row] = await db
     .insert(budgets)
@@ -14,6 +31,7 @@ export async function createBudget(
       categoryId: input.categoryId,
       amount: input.amount,
       scope: input.scope,
+      referenceDay: input.referenceDay ?? 1,
       userId: input.userId ?? null,
       spaceId: input.spaceId ?? null,
     })
@@ -29,8 +47,15 @@ export async function listBudgetsForSpace(db: Db, spaceId: string): Promise<Budg
   return db.select().from(budgets).where(and(eq(budgets.scope, "space"), eq(budgets.spaceId, spaceId)));
 }
 
-export async function updateBudget(db: Db, id: string, patch: { amount: string }): Promise<Budget | undefined> {
-  const [row] = await db.update(budgets).set({ amount: patch.amount }).where(eq(budgets.id, id)).returning();
+export async function updateBudget(
+  db: Db,
+  id: string,
+  patch: { amount?: string; referenceDay?: number },
+): Promise<Budget | undefined> {
+  const set: { amount?: string; referenceDay?: number } = {};
+  if (patch.amount !== undefined) set.amount = patch.amount;
+  if (patch.referenceDay !== undefined) set.referenceDay = patch.referenceDay;
+  const [row] = await db.update(budgets).set(set).where(eq(budgets.id, id)).returning();
   return row;
 }
 

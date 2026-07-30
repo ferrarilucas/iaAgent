@@ -1,0 +1,1 @@
+ALTER TABLE "budgets" ADD COLUMN "reference_day" integer DEFAULT 1 NOT NULL;

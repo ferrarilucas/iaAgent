@@ -1,9 +1,18 @@
 import { requireContext } from "@/lib/session";
 import { db } from "@/lib/db";
-import { listCategoriesForSpace, listBudgetsForUser, listBudgetsForSpace, getBudgetStatus, type Budget } from "@ia/db";
-import { formatBRL, currentMonthRange } from "@/lib/format";
+import {
+  listCategoriesForSpace,
+  listBudgetsForUser,
+  listBudgetsForSpace,
+  getBudgetStatus,
+  budgetCycleRange,
+  type Budget,
+} from "@ia/db";
+import { formatBRL } from "@/lib/format";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { criarLimite, atualizarLimite, apagarLimite } from "./actions";
+
+const dias = Array.from({ length: 28 }, (_, i) => i + 1);
 
 function barra(ratio: number): string {
   if (ratio >= 1) return "bg-danger";
@@ -17,7 +26,13 @@ function texto(ratio: number): string {
   return "text-success";
 }
 
-async function LinhaLimite({ budget, nome, from, to }: { budget: Budget; nome: string; from: string; to: string }) {
+function diaMes(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${d}/${m}`;
+}
+
+async function LinhaLimite({ budget, nome }: { budget: Budget; nome: string }) {
+  const { from, to } = budgetCycleRange(budget.referenceDay);
   const st = await getBudgetStatus(db, budget, from, to);
   const pct = Math.round(st.ratio * 100);
   const width = Math.min(100, pct);
@@ -35,32 +50,37 @@ async function LinhaLimite({ budget, nome, from, to }: { budget: Budget; nome: s
         </div>
         <span className={`w-12 shrink-0 text-right text-xs font-semibold tabular-nums ${texto(st.ratio)}`}>{pct}%</span>
       </div>
+      <div className="mt-1 flex items-center justify-between">
+        <span className="text-xs text-soft">
+          ciclo desde {diaMes(from)} · fecha no dia {budget.referenceDay}
+        </span>
+      </div>
       <details className="group mt-1.5">
         <summary className="cursor-pointer list-none text-xs font-medium text-soft transition hover:text-fg">Ajustar</summary>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <form action={atualizarLimite} className="flex items-center gap-2">
-            <input type="hidden" name="id" value={budget.id} />
-            <input name="amount" inputMode="decimal" placeholder="Novo valor" className="field w-36 py-1.5" />
-            <button className="btn-soft px-3 py-1.5 text-xs">Salvar</button>
-          </form>
-          <form action={apagarLimite}>
-            <input type="hidden" name="id" value={budget.id} />
-            <button className="btn-ghost px-3 py-1.5 text-xs text-danger">Apagar</button>
-          </form>
-        </div>
+        <form action={atualizarLimite} className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="id" value={budget.id} />
+          <input name="amount" inputMode="decimal" placeholder="Novo valor" className="field w-32 py-1.5" />
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            Dia
+            <select name="referenceDay" defaultValue={budget.referenceDay} className="field w-20 py-1.5">
+              {dias.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="btn-soft px-3 py-1.5 text-xs">Salvar</button>
+          <button formAction={apagarLimite} className="btn-ghost px-3 py-1.5 text-xs text-danger">
+            Apagar
+          </button>
+        </form>
       </details>
     </li>
   );
 }
 
-function Secao({ titulo, budgets, catName, from, to, vazio }: {
-  titulo: string;
-  budgets: Budget[];
-  catName: Map<string, string>;
-  from: string;
-  to: string;
-  vazio: string;
-}) {
+function Secao({ titulo, budgets, catName, vazio }: { titulo: string; budgets: Budget[]; catName: Map<string, string>; vazio: string }) {
   return (
     <section className="card p-5">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-soft">{titulo}</h2>
@@ -69,7 +89,7 @@ function Secao({ titulo, budgets, catName, from, to, vazio }: {
       ) : (
         <ul className="mt-2">
           {budgets.map((b) => (
-            <LinhaLimite key={b.id} budget={b} nome={catName.get(b.categoryId) ?? "—"} from={from} to={to} />
+            <LinhaLimite key={b.id} budget={b} nome={catName.get(b.categoryId) ?? "—"} />
           ))}
         </ul>
       )}
@@ -79,7 +99,6 @@ function Secao({ titulo, budgets, catName, from, to, vazio }: {
 
 export default async function LimitesPage() {
   const ctx = await requireContext();
-  const mes = currentMonthRange();
   const [cats, pessoais, doEspaco] = await Promise.all([
     listCategoriesForSpace(db, ctx.spaceId),
     listBudgetsForUser(db, ctx.userId),
@@ -90,7 +109,7 @@ export default async function LimitesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Limites" subtitle={`Tetos de gasto por categoria · ${mes.label}`} />
+      <PageHeader title="Limites" subtitle="Tetos de gasto por categoria, no seu ciclo" />
 
       <section className="card p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-soft">Novo limite</h2>
@@ -106,9 +125,19 @@ export default async function LimitesPage() {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted sm:w-40">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted sm:w-36">
               Valor do teto
               <input name="amount" inputMode="decimal" placeholder="ex: 300 ou 1.500,00" className="field" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted sm:w-24">
+              Fecha no dia
+              <select name="referenceDay" defaultValue={1} className="field">
+                {dias.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -142,16 +171,12 @@ export default async function LimitesPage() {
         titulo="Meus limites"
         budgets={pessoais}
         catName={catName}
-        from={mes.from}
-        to={mes.to}
         vazio="Nenhum limite pessoal ainda. Crie um acima — só os seus gastos contam."
       />
       <Secao
         titulo="Limites do espaço"
         budgets={doEspaco}
         catName={catName}
-        from={mes.from}
-        to={mes.to}
         vazio="Nenhum limite do espaço. Vale pra soma de todos os membros."
       />
     </div>
