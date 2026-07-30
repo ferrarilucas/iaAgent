@@ -13,3 +13,14 @@ export async function getSpaceMembers(
     .where(eq(spaceMembers.spaceId, spaceId));
   return rows.map((r) => ({ userId: r.userId, name: r.name, role: r.role }));
 }
+
+export async function getSpaceMembersWithNumber(
+  db: Db,
+  spaceId: string,
+): Promise<Array<{ userId: string; name: string | null; whatsappNumber: string }>> {
+  return db
+    .select({ userId: spaceMembers.userId, name: users.name, whatsappNumber: users.whatsappNumber })
+    .from(spaceMembers)
+    .innerJoin(users, eq(users.id, spaceMembers.userId))
+    .where(eq(spaceMembers.spaceId, spaceId));
+}

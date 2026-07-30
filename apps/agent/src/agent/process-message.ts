@@ -7,6 +7,7 @@ import {
   markMessageProcessed,
 } from "@ia/db";
 import type { IncomingMessage } from "@ia/whatsapp";
+import { pushSpaceBudgetAlerts } from "./space-alerts";
 
 export type RunAgentArgs = {
   db: Db;
@@ -70,6 +71,13 @@ export async function processMessage(deps: ProcessDeps, incoming: IncomingMessag
     });
 
     await deps.sendText(incoming.fromNumber, reply);
+
+    await pushSpaceBudgetAlerts({
+      db: deps.db,
+      spaceId,
+      authorUserId: user.id,
+      sendText: deps.sendText,
+    }).catch((e) => console.error(e));
 
     if (firstContact) {
       await deps.sendText(

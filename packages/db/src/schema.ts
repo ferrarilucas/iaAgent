@@ -9,6 +9,7 @@ import {
   primaryKey,
   boolean,
   integer,
+  unique,
 } from "drizzle-orm/pg-core";
 
 export const txTypeEnum = pgEnum("tx_type", ["despesa", "receita"]);
@@ -79,6 +80,24 @@ export const processedMessages = pgTable("processed_messages", {
   messageId: text("message_id").primaryKey(),
   processedAt: timestamp("processed_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const budgetAlertNotifications = pgTable(
+  "budget_alert_notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    scope: text("scope").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqDestinatario: unique().on(t.userId, t.categoryId, t.scope),
+  }),
+);
 
 export const budgets = pgTable("budgets", {
   id: uuid("id").defaultRandom().primaryKey(),
