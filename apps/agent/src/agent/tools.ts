@@ -9,12 +9,13 @@ import {
   getLastTransactionForUser,
   updateTransaction,
   deleteTransaction,
+  CATEGORY_NAMES,
 } from "@ia/db";
 
-const itemSchema = z.object({
+export const itemSchema = z.object({
   type: z.enum(["despesa", "receita"]),
   amount: z.string(),
-  categoria: z.string(),
+  categoria: z.enum(CATEGORY_NAMES),
   description: z.string().optional(),
   occurredAt: z.string(),
   source: z.enum(["texto", "audio", "foto", "video", "pdf"]),
@@ -125,7 +126,7 @@ export function createTools(db: Db, userId: string, spaceId: string) {
       inputSchema: z.object({
         type: z.enum(["despesa", "receita"]).optional(),
         amount: z.string().optional(),
-        categoria: z.string().optional(),
+        categoria: z.enum(CATEGORY_NAMES).optional(),
         description: z.string().optional(),
         occurredAt: z.string().optional(),
       }),

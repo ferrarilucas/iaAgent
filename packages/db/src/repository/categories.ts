@@ -2,6 +2,9 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "../client";
 import { categories } from "../schema";
 
+export const CATEGORY_NAMES = ["alimentacao", "transporte", "moradia", "lazer", "saude", "salario", "outros"] as const;
+export type CategoryName = (typeof CATEGORY_NAMES)[number];
+
 export const DEFAULT_CATEGORIES = [
   { name: "alimentacao", type: "despesa" },
   { name: "transporte", type: "despesa" },
