@@ -49,6 +49,16 @@ export function PlusIcon({ className }: IconProps) {
   );
 }
 
+export function GaugeIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M4 18a8 8 0 1 1 16 0" />
+      <path d="M12 18l4.2-4.2" />
+      <circle cx="12" cy="18" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function SunIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className}>

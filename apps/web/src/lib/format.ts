@@ -11,6 +11,16 @@ export function formatDate(iso: string): string {
   return `${d}/${m}/${y.slice(2)}`;
 }
 
+export function parseAmountBR(raw: string): string | null {
+  let s = (raw ?? "").replace(/[^\d.,]/g, "");
+  if (s.includes(",")) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  }
+  const n = Number(s);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n.toFixed(2);
+}
+
 export function initials(name?: string | null): string {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";

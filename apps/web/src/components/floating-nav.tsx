@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import { PilinhaMark } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
 import { SignOut } from "./sign-out";
-import { HomeIcon, ListIcon, UsersIcon, PlusIcon, WhatsappIcon } from "./icons";
+import { HomeIcon, ListIcon, UsersIcon, GaugeIcon, PlusIcon, WhatsappIcon } from "./icons";
 
 const items = [
   { href: "/app", label: "Início", Icon: HomeIcon },
   { href: "/app/transacoes", label: "Transações", Icon: ListIcon },
   { href: "/app/espacos", label: "Espaços", Icon: UsersIcon },
+  { href: "/app/limites", label: "Limites", Icon: GaugeIcon },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -74,6 +75,7 @@ export function FloatingNav() {
             <PlusIcon className="h-6 w-6" />
           </button>
           <BarItem pathname={pathname} {...items[2]} />
+          <BarItem pathname={pathname} {...items[3]} />
         </div>
       </nav>
 
