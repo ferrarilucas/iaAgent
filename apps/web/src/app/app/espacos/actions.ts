@@ -18,7 +18,12 @@ export async function convidar(formData: FormData) {
   if (!bruto) return;
   const numero = normalizeBrazilNumber(bruto);
   await createInvitation(db, { spaceId: ctx.spaceId, invitedBy: ctx.userId, invitedNumber: numero });
-  await sendText(evolution, numero, "Voce foi convidado para compartilhar as contas no Pilinha. Abra o painel para aceitar.").catch(() => {});
+  const link = `${env.BETTER_AUTH_URL}/app/espacos`;
+  await sendText(
+    evolution,
+    numero,
+    `Voce foi convidado pra compartilhar as contas na pilinha 💛\nEntre com o seu numero e aceite aqui: ${link}`,
+  ).catch(() => {});
   revalidatePath("/app/espacos");
 }
 
