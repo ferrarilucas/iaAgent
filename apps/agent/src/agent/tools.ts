@@ -9,8 +9,23 @@ import {
   getLastTransactionForUser,
   updateTransaction,
   deleteTransaction,
+  getBudgetAlerts,
   CATEGORY_NAMES,
+  type BudgetAlert,
 } from "@ia/db";
+
+function paraModelo(a: BudgetAlert) {
+  return {
+    categoria: a.categoria,
+    escopo: a.escopo,
+    gasto: a.gasto,
+    teto: a.teto,
+    percentual: a.percentual,
+    status: a.status,
+    diaFechamento: a.diaFechamento,
+    cicloDesde: a.cicloDesde,
+  };
+}
 
 export const itemSchema = z.object({
   type: z.enum(["despesa", "receita"]),
@@ -31,7 +46,7 @@ async function resolveCategoria(db: Db, spaceId: string, nome: string, type: "de
 export async function registrarTransacaoImpl(
   db: Db,
   input: { userId: string; spaceId: string; itens: Array<z.infer<typeof itemSchema>> },
-): Promise<{ criadas: number }> {
+): Promise<{ criadas: number; alertas: ReturnType<typeof paraModelo>[] }> {
   const inputs = [];
   for (const it of input.itens) {
     const categoryId = await resolveCategoria(db, input.spaceId, it.categoria, it.type);
@@ -46,7 +61,19 @@ export async function registrarTransacaoImpl(
     });
   }
   const rows = await insertTransactions(db, inputs);
-  return { criadas: rows.length };
+  const categoryIds = [...new Set(inputs.map((i) => i.categoryId).filter((id): id is string => Boolean(id)))];
+  const alertas = categoryIds.length
+    ? await getBudgetAlerts(db, { userId: input.userId, spaceId: input.spaceId, categoryIds })
+    : [];
+  return { criadas: rows.length, alertas: alertas.map(paraModelo) };
+}
+
+export async function consultarLimitesImpl(
+  db: Db,
+  input: { userId: string; spaceId: string },
+): Promise<{ limites: ReturnType<typeof paraModelo>[] }> {
+  const alertas = await getBudgetAlerts(db, { userId: input.userId, spaceId: input.spaceId });
+  return { limites: alertas.map(paraModelo) };
 }
 
 export async function consultarImpl(
@@ -119,6 +146,13 @@ export function createTools(db: Db, userId: string, spaceId: string) {
         type: z.enum(["despesa", "receita"]),
       }),
       execute: async (inputData) => resumoImpl(db, { spaceId, ...inputData }),
+    }),
+    consultar_limites: createTool({
+      id: "consultar_limites",
+      description:
+        "Lista os limites (tetos de gasto) do usuario com o status atual do ciclo de cada um: gasto, teto, percentual, status (ok/alerta/estourado), escopo (pessoal ou espaco) e desde quando conta o ciclo. Use quando o usuario perguntar sobre limites, quanto ja gastou de um teto ou quanto falta.",
+      inputSchema: z.object({}),
+      execute: async () => consultarLimitesImpl(db, { userId, spaceId }),
     }),
     corrigir_ultima_transacao: createTool({
       id: "corrigir_ultima_transacao",

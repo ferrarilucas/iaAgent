@@ -3,6 +3,23 @@ import type { Db } from "../client";
 import { budgets, transactions } from "../schema";
 import type { Budget } from "../types";
 import { getSpaceMemberUserIds } from "./users";
+import { listCategoriesForSpace } from "./categories";
+
+export const BUDGET_ALERT_THRESHOLD = 0.8;
+
+export type BudgetAlert = {
+  budgetId: string;
+  categoryId: string;
+  categoria: string;
+  escopo: "pessoal" | "espaco";
+  gasto: string;
+  teto: string;
+  ratio: number;
+  percentual: number;
+  diaFechamento: number;
+  cicloDesde: string;
+  status: "ok" | "alerta" | "estourado";
+};
 
 export function budgetCycleRange(referenceDay: number, tz = "America/Sao_Paulo"): { from: string; to: string } {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
@@ -61,6 +78,40 @@ export async function updateBudget(
 
 export async function deleteBudget(db: Db, id: string): Promise<void> {
   await db.delete(budgets).where(eq(budgets.id, id));
+}
+
+export async function getBudgetAlerts(
+  db: Db,
+  input: { userId: string; spaceId: string; categoryIds?: string[] },
+): Promise<BudgetAlert[]> {
+  const [pessoais, doEspaco, cats] = await Promise.all([
+    listBudgetsForUser(db, input.userId),
+    listBudgetsForSpace(db, input.spaceId),
+    listCategoriesForSpace(db, input.spaceId),
+  ]);
+  const catName = new Map(cats.map((c) => [c.id, c.name]));
+  const filtro = input.categoryIds ? new Set(input.categoryIds) : null;
+  const selecionados = [...pessoais, ...doEspaco].filter((b) => !filtro || filtro.has(b.categoryId));
+  const alertas: BudgetAlert[] = [];
+  for (const b of selecionados) {
+    const ciclo = budgetCycleRange(b.referenceDay);
+    const st = await getBudgetStatus(db, b, ciclo.from, ciclo.to);
+    const status = st.ratio >= 1 ? "estourado" : st.ratio >= BUDGET_ALERT_THRESHOLD ? "alerta" : "ok";
+    alertas.push({
+      budgetId: b.id,
+      categoryId: b.categoryId,
+      categoria: catName.get(b.categoryId) ?? "outros",
+      escopo: b.scope === "user" ? "pessoal" : "espaco",
+      gasto: st.spent,
+      teto: st.limit,
+      ratio: st.ratio,
+      percentual: Math.round(st.ratio * 100),
+      diaFechamento: b.referenceDay,
+      cicloDesde: ciclo.from,
+      status,
+    });
+  }
+  return alertas;
 }
 
 export async function getBudgetStatus(
