@@ -25,15 +25,15 @@ export default async function TransacoesPage({ searchParams }: { searchParams: P
       <PageHeader title="Transações" subtitle="Tudo que entra e sai do seu espaço" />
 
       <form className="card flex flex-wrap items-end gap-3 p-4" method="get">
-        <label className="flex flex-col gap-1 text-xs font-medium text-ink-muted">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
           De
           <input type="date" name="from" defaultValue={sp.from ?? ""} className="field" />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-ink-muted">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
           Até
           <input type="date" name="to" defaultValue={sp.to ?? ""} className="field" />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-ink-muted">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
           Tipo
           <select name="type" defaultValue={type ?? ""} className="field">
             <option value="">Todos</option>
@@ -41,59 +41,53 @@ export default async function TransacoesPage({ searchParams }: { searchParams: P
             <option value="receita">Receita</option>
           </select>
         </label>
-        <button className="btn-primary">Filtrar</button>
+        <button className="btn-accent">Filtrar</button>
       </form>
 
       {ordenadas.length === 0 ? (
         <EmptyState title="Nenhum lançamento no filtro" hint="Ajuste o período ou o tipo acima." />
       ) : (
         <div className="card overflow-hidden p-0">
-          <div className="hidden grid-cols-[1fr_auto] items-center justify-between gap-2 border-b border-cream-200 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-soft sm:grid sm:grid-cols-[5rem_7rem_1fr_9rem_7rem]">
+          <div className="hidden border-b border-line px-5 py-3 text-xs font-semibold uppercase tracking-wide text-soft sm:grid sm:grid-cols-[5rem_7rem_1fr_9rem_7rem] sm:items-center sm:gap-2">
             <span>Data</span>
             <span>Tipo</span>
             <span>Descrição / Categoria</span>
             <span>Quem</span>
             <span className="text-right">Valor</span>
           </div>
-          <ul className="divide-y divide-cream-200">
+          <ul>
             {ordenadas.map((t) => (
               <li
                 key={t.id}
-                className="grid grid-cols-1 gap-1 px-5 py-3 transition-colors hover:bg-cream-50 sm:grid-cols-[5rem_7rem_1fr_9rem_7rem] sm:items-center sm:gap-2"
+                className="grid grid-cols-1 gap-1 border-t border-line px-5 py-3 transition-colors first:border-t-0 hover:bg-surface2 sm:grid-cols-[5rem_7rem_1fr_9rem_7rem] sm:items-center sm:gap-2"
               >
-                <span className="text-sm tabular-nums text-ink-muted">{formatDate(t.occurredAt)}</span>
+                <span className="text-sm tabular-nums text-muted">{formatDate(t.occurredAt)}</span>
                 <span>
                   <TypeBadge type={t.type} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-navy-800">
+                  <span className="block truncate text-sm font-medium text-fg">
                     {t.description || (t.categoryId ? catName.get(t.categoryId) ?? "Lançamento" : "Lançamento")}
                   </span>
                   {t.description && t.categoryId ? (
-                    <span className="text-xs capitalize text-ink-soft">{catName.get(t.categoryId) ?? ""}</span>
+                    <span className="text-xs capitalize text-soft">{catName.get(t.categoryId) ?? ""}</span>
                   ) : null}
                 </span>
-                <span className="flex items-center gap-2 text-sm text-ink-muted">
+                <span className="flex items-center gap-2 text-sm text-muted">
                   <Avatar name={memberName.get(t.createdBy)} />
                   <span className="hidden truncate sm:inline">{memberName.get(t.createdBy) ?? "?"}</span>
                 </span>
-                <span
-                  className={`text-sm font-semibold tabular-nums sm:text-right ${
-                    t.type === "receita" ? "text-success" : "text-danger"
-                  }`}
-                >
+                <span className={`text-sm font-semibold tabular-nums sm:text-right ${t.type === "receita" ? "text-success" : "text-danger"}`}>
                   {t.type === "receita" ? "+" : "−"} {formatBRL(t.amount)}
                 </span>
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between border-t border-cream-200 bg-cream-50 px-5 py-3 text-sm">
-            <span className="text-ink-muted">
+          <div className="flex items-center justify-between border-t border-line px-5 py-3 text-sm">
+            <span className="text-muted">
               {ordenadas.length} lançamento{ordenadas.length === 1 ? "" : "s"}
             </span>
-            <span className={`font-semibold tabular-nums ${total >= 0 ? "text-navy-800" : "text-danger"}`}>
-              Saldo: {formatBRL(total)}
-            </span>
+            <span className={`font-semibold tabular-nums ${total >= 0 ? "text-fg" : "text-danger"}`}>Saldo: {formatBRL(total)}</span>
           </div>
         </div>
       )}

@@ -2,12 +2,27 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
+  darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       colors: {
+        canvas: "var(--canvas)",
+        surface: "var(--surface)",
+        surface2: "var(--surface-2)",
+        line: "var(--line)",
+        fg: "var(--fg)",
+        muted: "var(--muted)",
+        soft: "var(--soft)",
+        accent: {
+          DEFAULT: "var(--accent)",
+          fg: "var(--accent-fg)",
+          soft: "var(--accent-soft)",
+        },
+        success: { DEFAULT: "var(--success)", soft: "var(--success-soft)" },
+        danger: { DEFAULT: "var(--danger)", soft: "var(--danger-soft)" },
         navy: {
           50: "#eef3f8",
           100: "#d7e2ee",
@@ -32,29 +47,11 @@ const config: Config = {
           700: "#98783c",
           800: "#7a6131",
         },
-        cream: {
-          50: "#faf8f3",
-          100: "#f5f1e8",
-          200: "#ece5d6",
-          300: "#ddd3bd",
-        },
-        ink: {
-          DEFAULT: "#16273a",
-          muted: "#5b6b7b",
-          soft: "#8595a3",
-        },
-        success: { DEFAULT: "#2f8f5b", soft: "#e3f3ea" },
-        danger: { DEFAULT: "#c2453f", soft: "#f8e3e2" },
       },
       borderRadius: {
         xl: "0.9rem",
-        "2xl": "1.25rem",
-        "3xl": "1.75rem",
-      },
-      boxShadow: {
-        card: "0 1px 2px rgba(16, 42, 68, 0.04), 0 8px 24px -12px rgba(16, 42, 68, 0.16)",
-        "card-hover": "0 2px 4px rgba(16, 42, 68, 0.06), 0 16px 40px -16px rgba(16, 42, 68, 0.24)",
-        soft: "0 1px 2px rgba(16, 42, 68, 0.05)",
+        "2xl": "1.1rem",
+        "3xl": "1.6rem",
       },
     },
   },

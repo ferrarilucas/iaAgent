@@ -26,22 +26,16 @@ export function PilinhaMark({ className }: MarkProps) {
   );
 }
 
-type LogoProps = { className?: string; tagline?: boolean; light?: boolean };
+type LogoProps = { className?: string; tagline?: boolean };
 
-export function PilinhaLogo({ className, tagline = false, light = false }: LogoProps) {
+export function PilinhaLogo({ className, tagline = false }: LogoProps) {
   return (
     <div className={`flex items-center gap-2.5 ${className ?? ""}`}>
       <PilinhaMark className="h-9 w-auto" />
       <div className="flex flex-col leading-none">
-        <span
-          className={`text-xl font-extrabold tracking-tight ${light ? "text-white" : "text-navy-700"}`}
-        >
-          pilinha
-        </span>
+        <span className="text-xl font-extrabold tracking-tight text-fg">pilinha</span>
         {tagline ? (
-          <span className={`mt-1 text-[11px] font-medium ${light ? "text-cream-200" : "text-ink-soft"}`}>
-            Gestão Financeira Inteligente
-          </span>
+          <span className="mt-1 text-[11px] font-medium text-soft">Gestão Financeira Inteligente</span>
         ) : null}
       </div>
     </div>

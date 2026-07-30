@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { normalizeBrazilNumber } from "@ia/whatsapp";
 import { PilinhaLogo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,7 +40,10 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
+    <main className="relative flex min-h-screen items-center justify-center p-6">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-sm">
         <div className="mb-8 flex justify-center">
           <PilinhaLogo tagline />
@@ -49,10 +53,10 @@ export default function LoginPage() {
           {etapa === "numero" ? (
             <div className="flex flex-col gap-5">
               <div>
-                <h1 className="text-lg font-bold text-navy-800">Entrar no painel</h1>
-                <p className="mt-1 text-sm text-ink-muted">Enviamos um código pelo seu WhatsApp.</p>
+                <h1 className="text-lg font-bold text-fg">Entrar no painel</h1>
+                <p className="mt-1 text-sm text-muted">Enviamos um código pelo seu WhatsApp.</p>
               </div>
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-muted">
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-muted">
                 Seu número
                 <input
                   className="field"
@@ -64,19 +68,19 @@ export default function LoginPage() {
                   onKeyDown={(e) => e.key === "Enter" && numero && pedirCodigo()}
                 />
               </label>
-              <button className="btn-gold w-full" onClick={pedirCodigo} disabled={carregando || !numero}>
+              <button className="btn-accent w-full" onClick={pedirCodigo} disabled={carregando || !numero}>
                 {carregando ? "Enviando…" : "Enviar código no WhatsApp"}
               </button>
             </div>
           ) : (
             <div className="flex flex-col gap-5">
               <div>
-                <h1 className="text-lg font-bold text-navy-800">Confirme o código</h1>
-                <p className="mt-1 text-sm text-ink-muted">
-                  Enviado para <span className="font-semibold text-navy-700">{numero}</span>.
+                <h1 className="text-lg font-bold text-fg">Confirme o código</h1>
+                <p className="mt-1 text-sm text-muted">
+                  Enviado para <span className="font-semibold text-fg">{numero}</span>.
                 </p>
               </div>
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-muted">
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-muted">
                 Código de 6 dígitos
                 <input
                   className="field text-center text-lg font-semibold tracking-[0.4em]"
@@ -89,11 +93,11 @@ export default function LoginPage() {
                   onKeyDown={(e) => e.key === "Enter" && codigo && verificar()}
                 />
               </label>
-              <button className="btn-gold w-full" onClick={verificar} disabled={carregando || codigo.length < 4}>
+              <button className="btn-accent w-full" onClick={verificar} disabled={carregando || codigo.length < 4}>
                 {carregando ? "Verificando…" : "Entrar"}
               </button>
               <button
-                className="text-center text-sm font-medium text-ink-soft hover:text-navy-700"
+                className="text-center text-sm font-medium text-soft transition hover:text-fg"
                 onClick={() => {
                   setEtapa("numero");
                   setCodigo("");
@@ -106,13 +110,13 @@ export default function LoginPage() {
           )}
 
           {erro ? (
-            <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger">{erro}</p>
+            <p className="mt-4 rounded-xl px-3 py-2 text-sm font-medium text-danger" style={{ background: "var(--danger-soft)" }}>
+              {erro}
+            </p>
           ) : null}
         </div>
 
-        <p className="mt-6 text-center text-xs text-ink-soft">
-          Ao entrar, você usa o mesmo número do seu WhatsApp com a pilinha.
-        </p>
+        <p className="mt-6 text-center text-xs text-soft">Ao entrar, você usa o mesmo número do seu WhatsApp com a pilinha.</p>
       </div>
     </main>
   );

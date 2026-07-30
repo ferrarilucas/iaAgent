@@ -4,51 +4,131 @@
 
 @layer base {
   :root {
+    --canvas: #f2eee4;
+    --surface: rgba(255, 255, 255, 0.72);
+    --surface-2: rgba(255, 255, 255, 0.5);
+    --line: rgba(16, 42, 68, 0.1);
+    --fg: #16273a;
+    --muted: #51637a;
+    --soft: #8595a3;
+    --accent: #b8934a;
+    --accent-fg: #0c2036;
+    --accent-soft: rgba(184, 147, 74, 0.16);
+    --success: #2f8f5b;
+    --success-soft: rgba(47, 143, 91, 0.15);
+    --danger: #c2453f;
+    --danger-soft: rgba(194, 69, 63, 0.14);
+    --shadow-glass: 0 8px 30px -14px rgba(16, 42, 68, 0.3);
+    --glow: radial-gradient(55rem 38rem at 100% -8%, rgba(184, 147, 74, 0.16), transparent 55%),
+      radial-gradient(48rem 38rem at -8% 4%, rgba(22, 58, 91, 0.1), transparent 52%);
     color-scheme: light;
   }
 
+  [data-theme="dark"] {
+    --canvas: #081221;
+    --surface: rgba(255, 255, 255, 0.055);
+    --surface-2: rgba(255, 255, 255, 0.09);
+    --line: rgba(255, 255, 255, 0.1);
+    --fg: #e9eff6;
+    --muted: #9fb1c4;
+    --soft: #6c8299;
+    --accent: #d8b978;
+    --accent-fg: #0a1424;
+    --accent-soft: rgba(216, 185, 120, 0.16);
+    --success: #4ecb86;
+    --success-soft: rgba(78, 203, 134, 0.14);
+    --danger: #f0817b;
+    --danger-soft: rgba(240, 129, 123, 0.14);
+    --shadow-glass: 0 10px 34px -12px rgba(0, 0, 0, 0.6);
+    --glow: radial-gradient(55rem 38rem at 100% -8%, rgba(216, 185, 120, 0.14), transparent 55%),
+      radial-gradient(50rem 40rem at -6% 2%, rgba(43, 92, 133, 0.28), transparent 55%);
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
-    @apply bg-cream-100 text-ink antialiased;
-    background-image:
-      radial-gradient(60rem 40rem at 100% -10%, rgba(198, 161, 91, 0.14), transparent 55%),
-      radial-gradient(50rem 40rem at -10% 0%, rgba(22, 58, 91, 0.08), transparent 50%);
+    background-color: var(--canvas);
+    background-image: var(--glow);
     background-attachment: fixed;
+    color: var(--fg);
+    @apply antialiased;
   }
 
   ::selection {
-    @apply bg-gold-200 text-navy-800;
+    background: var(--accent-soft);
+    color: var(--fg);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 9999px;
   }
 }
 
 @layer components {
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
   .card {
-    @apply rounded-2xl border border-cream-200 bg-white/90 shadow-card backdrop-blur-sm;
+    @apply glass rounded-3xl;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-100 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+    --tw-ring-color: var(--accent);
+    --tw-ring-offset-color: var(--canvas);
   }
-  .btn-primary {
-    @apply btn bg-navy-700 text-white hover:bg-navy-600 active:bg-navy-800 shadow-soft;
+  .btn-accent {
+    @apply btn;
+    background: var(--accent);
+    color: var(--accent-fg);
   }
-  .btn-gold {
-    @apply btn bg-gold-500 text-navy-900 hover:bg-gold-400 active:bg-gold-600 shadow-soft;
+  .btn-accent:hover {
+    filter: brightness(1.06);
+  }
+  .btn-soft {
+    @apply btn;
+    background: var(--surface-2);
+    color: var(--fg);
+    border: 1px solid var(--line);
   }
   .btn-ghost {
-    @apply btn bg-transparent text-ink-muted hover:bg-cream-200/70 hover:text-navy-700;
+    @apply btn;
+    background: transparent;
+    color: var(--muted);
+  }
+  .btn-ghost:hover {
+    background: var(--surface-2);
+    color: var(--fg);
   }
 
   .field {
-    @apply w-full rounded-xl border border-cream-300 bg-white px-3.5 py-2.5 text-sm text-ink shadow-soft outline-none transition placeholder:text-ink-soft focus:border-gold-400 focus:ring-2 focus:ring-gold-400/30;
+    @apply w-full rounded-2xl px-3.5 py-2.5 text-sm outline-none transition;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--fg);
+  }
+  .field::placeholder {
+    color: var(--soft);
+  }
+  .field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   .badge {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
-  }
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
   }
 }
