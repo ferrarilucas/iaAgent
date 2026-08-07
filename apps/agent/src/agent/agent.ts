@@ -1,8 +1,8 @@
 import { Agent } from "@mastra/core/agent";
-import { google } from "@ai-sdk/google";
 import type { Memory } from "@mastra/memory";
 import { CATEGORY_NAMES } from "@ia/db";
 import type { createTools } from "./tools";
+import type { buildModel } from "./ai-config";
 
 const CATEGORIAS = CATEGORY_NAMES.join(", ");
 
@@ -20,13 +20,17 @@ const PERSONA = [
   "Nas datas que voce passar para as tools, use sempre o formato YYYY-MM-DD. Quando o usuario disser 'hoje', 'ontem' etc., calcule a partir da data de hoje informada abaixo, ignorando qualquer data que apareca no historico da conversa.",
 ].join(" ");
 
-export function buildAgent(memory: Memory, tools: ReturnType<typeof createTools>): Agent {
+export function buildAgent(
+  memory: Memory,
+  tools: ReturnType<typeof createTools>,
+  model: ReturnType<typeof buildModel>,
+): Agent {
   const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   return new Agent({
     id: "assistente-financeiro",
     name: "assistente-financeiro",
     instructions: `${PERSONA} A data de hoje e ${hoje}.`,
-    model: google("gemini-flash-latest"),
+    model,
     tools,
     memory,
   });

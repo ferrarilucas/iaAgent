@@ -5,6 +5,7 @@ import { createTools } from "../agent/tools";
 import { buildAgent } from "../agent/agent";
 import { buildMemory } from "../agent/memory";
 import { processMessage } from "../agent/process-message";
+import { resolveAiConfig, buildModel } from "../agent/ai-config";
 
 const MEDIA_MIME: Record<string, string> = {
   audio: "audio/ogg",
@@ -21,9 +22,11 @@ export function createHandlerDeps(db: Db, config: AppConfig) {
     spaceId: string;
     threadId: string;
     incoming: IncomingMessage;
+    aiMode: "nossa" | "byo";
   }): Promise<string> => {
     const tools = createTools(args.db, args.userId, args.spaceId);
-    const agent = buildAgent(memory, tools);
+    const model = buildModel(resolveAiConfig(args.aiMode, config.googleApiKey));
+    const agent = buildAgent(memory, tools, model);
     const content: any[] = [{ type: "text", text: args.incoming.text ?? "" }];
     if (args.incoming.kind !== "texto") {
       const base64 = await fetchMediaBase64(config, args.incoming.messageId);
