@@ -7,6 +7,11 @@ const schema = z.object({
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
   DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().default(3001),
+  SUBSCRIPTIONS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  BILLING_URL: z.string().url().default("https://pilinha.com.br/precos"),
 });
 
 export type AppConfig = {
@@ -16,6 +21,8 @@ export type AppConfig = {
   googleApiKey: string;
   databaseUrl: string;
   port: number;
+  subscriptionsEnabled: boolean;
+  billingUrl: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -27,5 +34,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     googleApiKey: parsed.GOOGLE_GENERATIVE_AI_API_KEY,
     databaseUrl: parsed.DATABASE_URL,
     port: parsed.PORT,
+    subscriptionsEnabled: parsed.SUBSCRIPTIONS_ENABLED,
+    billingUrl: parsed.BILLING_URL,
   };
 }

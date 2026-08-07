@@ -5,9 +5,11 @@ import {
   seedCategories,
   getSpaceForUser,
   markMessageProcessed,
+  resolveAccessForUser,
 } from "@ia/db";
 import type { IncomingMessage } from "@ia/whatsapp";
 import { pushSpaceBudgetAlerts } from "./space-alerts";
+import { blockedMessage } from "./gate";
 
 export type RunAgentArgs = {
   db: Db;
@@ -15,6 +17,7 @@ export type RunAgentArgs = {
   spaceId: string;
   threadId: string;
   incoming: IncomingMessage;
+  aiMode: "nossa" | "byo";
 };
 
 export type ProcessDeps = {
@@ -23,6 +26,8 @@ export type ProcessDeps = {
   sendText: (toNumber: string, text: string) => Promise<void>;
   markAsRead: (message: { remoteJid: string; id: string; fromMe: boolean }) => Promise<void>;
   setTyping: (toNumber: string) => Promise<void>;
+  subscriptionsEnabled?: boolean;
+  billingUrl?: string;
 };
 
 const FALLBACK_TEXT = "Nao consegui processar sua mensagem agora. Pode tentar de novo?";
@@ -60,6 +65,17 @@ export async function processMessage(deps: ProcessDeps, incoming: IncomingMessag
       }
     }
 
+    let aiMode: "nossa" | "byo" = "nossa";
+    if (deps.subscriptionsEnabled) {
+      const { subscription, access } = await resolveAccessForUser(deps.db, user.id);
+      const bloqueio = blockedMessage(access, deps.billingUrl ?? "");
+      if (bloqueio) {
+        await deps.sendText(incoming.fromNumber, bloqueio);
+        return;
+      }
+      aiMode = subscription.aiMode;
+    }
+
     await deps.setTyping(incoming.fromNumber).catch(() => {});
 
     const reply = await deps.runAgent({
@@ -68,6 +84,7 @@ export async function processMessage(deps: ProcessDeps, incoming: IncomingMessag
       spaceId,
       threadId: incoming.fromNumber,
       incoming,
+      aiMode,
     });
 
     await deps.sendText(incoming.fromNumber, reply);

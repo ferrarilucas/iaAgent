@@ -40,6 +40,8 @@ export function createHandlerDeps(db: Db, config: AppConfig) {
     sendText: (toNumber: string, text: string) => sendText(config, toNumber, text),
     markAsRead: (message: { remoteJid: string; id: string; fromMe: boolean }) => markAsRead(config, message),
     setTyping: (toNumber: string) => sendPresence(config, toNumber, "composing", 3000),
+    subscriptionsEnabled: config.subscriptionsEnabled,
+    billingUrl: config.billingUrl,
   };
 }
 
