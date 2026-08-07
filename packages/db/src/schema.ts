@@ -17,6 +17,14 @@ export const sourceEnum = pgEnum("source", ["texto", "audio", "foto", "video", "
 export const memberRoleEnum = pgEnum("member_role", ["owner", "member"]);
 export const inviteStatusEnum = pgEnum("invite_status", ["pending", "accepted", "declined"]);
 export const budgetScopeEnum = pgEnum("budget_scope", ["user", "space"]);
+export const subscriptionTierEnum = pgEnum("subscription_tier", ["individual", "espaco"]);
+export const subscriptionAiModeEnum = pgEnum("subscription_ai_mode", ["nossa", "byo"]);
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "trial",
+  "ativo",
+  "atrasado",
+  "cancelado",
+]);
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -142,6 +150,25 @@ export const verification = pgTable("verification", {
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tier: subscriptionTierEnum("tier").notNull().default("individual"),
+  aiMode: subscriptionAiModeEnum("ai_mode").notNull().default("nossa"),
+  status: subscriptionStatusEnum("status").notNull().default("trial"),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  pastDueSince: timestamp("past_due_since", { withTimezone: true }),
+  provider: text("provider"),
+  providerCustomerId: text("provider_customer_id"),
+  providerSubscriptionId: text("provider_subscription_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
