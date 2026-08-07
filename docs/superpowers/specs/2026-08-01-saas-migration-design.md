@@ -127,10 +127,33 @@ Comparação de taxas levantada (2026), relevante por ser ticket baixo:
   madura.
 - **Stripe:** cartão 3,99% + R$0,39 fixo (o fixo come ~8% do plano de R$9,99), Pix 1,19%.
 
+- **Asaas:** cartão 2,99% + R$0,49; Pix **R$1,99 fixo** (R$0,99 nos 3 primeiros meses);
+  boleto R$3,49; +1,99% sobre o valor em cobranças de assinatura; **Pix Automático já
+  lançado e funcionando**.
+
 Ponto estrutural: cobrança recorrente automática é trivial no cartão; no Pix depende do
-Pix Automático, ainda irregular entre provedores. Candidatos para começar: Appmax (menor
-taxa de cartão) ou Mercado Pago (confiança + recorrência madura). Stripe fica de fora pelo
-fixo no ticket baixo, salvo se a maioria for Pix.
+Pix Automático, ainda irregular entre provedores.
+
+**DECISÃO (2026-08-03): Asaas.** Escolhido pelo dono do projeto. O fator decisivo é o Pix
+Automático funcionando hoje — a Appmax ainda o lista como "em desenvolvimento".
+
+Consequência econômica assumida conscientemente: a taxa de Pix do Asaas é **fixa**, não
+percentual, então ela pesa desproporcionalmente no ticket baixo. No plano de R$9,99 via Pix,
+R$1,99 é ~20% da receita (contra ~1% da Appmax); no de R$29,99, ~6,6%. Os pontos de virada
+em que o Asaas passaria a ser mais barato são ~R$98 de ticket no cartão e ~R$201 no Pix —
+ambos muito acima da nossa faixa. Ou seja: **no Asaas, o cartão é mais barato que o Pix para
+os nossos preços**, o inverso do que vale na Appmax.
+
+Implicações práticas para a Fase 2:
+- Confirmar com o Asaas a **franquia de Pix grátis por mês** — as fontes públicas divergem
+  entre "30" e "100 transações grátis". Se forem 100, os primeiros ~100 assinantes pagam
+  Pix zero e a economia muda completamente na fase inicial. Verificar antes de modelar preço.
+- Confirmar se o adicional de 1,99% de assinatura incide sobre cobrança recorrente em Pix ou
+  só sobre parcelamento no cartão.
+- Não empurrar Pix como default no checkout do plano de R$9,99 sem antes fechar os dois
+  pontos acima — no Asaas isso pode custar mais caro que o cartão.
+- A interface `PaymentProvider` continua valendo: a escolha não deve vazar para o resto do
+  sistema, e trocar de provedor (ou rodar dois em paralelo) precisa seguir barato.
 
 ## Plano de migração faseado
 
