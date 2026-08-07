@@ -8,8 +8,8 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().default(3001),
   SUBSCRIPTIONS_ENABLED: z
-    .enum(["true", "false"])
-    .default("false")
+    .string()
+    .optional()
     .transform((v) => v === "true"),
   BILLING_URL: z.string().url().default("https://pilinha.com.br/precos"),
 });
