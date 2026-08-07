@@ -151,6 +151,25 @@ spec → plano → implementação.
 - **Fase 5 — endurecimento:** anti-ban do número único (rate limit), dunning ativo
   (lembrete no próprio WhatsApp), observabilidade de billing.
 
+## Pré-condições para ligar `SUBSCRIPTIONS_ENABLED=true` em produção
+
+Levantadas no review final da Fase 1. Nenhuma bloqueia o merge da fundação (a flag nasce
+desligada), mas **todas bloqueiam o flip**:
+
+1. **Backfill/grandfathering dos usuários existentes.** `ensureTrialSubscription` é o único
+   caminho de criação de assinatura e sempre cria `trial` com 7 dias. No dia em que a flag
+   for ligada, todo usuário que já usa o Pilinha há meses ganha um trial novo e é
+   **bloqueado no oitavo dia**. Precisa de uma migration marcando os usuários pré-corte como
+   `ativo`, ou de uma data de corte por `createdAt`.
+2. **Cobertura de assinatura de espaço (Fase 4).** Sem ela, membros convidados de um espaço
+   cujo dono paga são bloqueados individualmente.
+3. **Gate no push proativo.** `pushSpaceBudgetAlerts` (`apps/agent/src/agent/space-alerts.ts`)
+   manda mensagem aos outros membros sem consultar acesso — um usuário bloqueado continuaria
+   recebendo alertas de limite pelo WhatsApp.
+4. **Supressão de repetição da mensagem de bloqueio.** Hoje cada mensagem de um usuário
+   bloqueado gera uma resposta; 20 mensagens viram 20 links de cobrança. Irritante e risco de
+   ban (o rate limit anti-ban é Fase 5).
+
 ## Escopo da Fase 1 (o que será implementado agora)
 
 1. Migration + schema Drizzle de `subscriptions` (sem `ai_credentials` nem
