@@ -85,11 +85,13 @@ describe("porteiro no processMessage", () => {
 
     const sent: string[] = [];
     const runAgent = vi.fn(async () => "nao deveria rodar");
+    const d = deps(t.db, sent, runAgent) as any;
 
-    await processMessage(deps(t.db, sent, runAgent) as any, msg("G2", "5551920000002"));
+    await processMessage(d, msg("G2", "5551920000002"));
 
     expect(runAgent).not.toHaveBeenCalled();
     expect(sent.some((t) => t.includes(BILLING))).toBe(true);
+    expect(d.setTyping).not.toHaveBeenCalled();
   });
 
   it("bloqueia quem cancelou", async () => {
@@ -101,10 +103,12 @@ describe("porteiro no processMessage", () => {
 
     const sent: string[] = [];
     const runAgent = vi.fn(async () => "nao deveria rodar");
+    const d = deps(t.db, sent, runAgent) as any;
 
-    await processMessage(deps(t.db, sent, runAgent) as any, msg("G3", "5551920000003"));
+    await processMessage(d, msg("G3", "5551920000003"));
 
     expect(runAgent).not.toHaveBeenCalled();
+    expect(d.setTyping).not.toHaveBeenCalled();
   });
 
   it("com a flag desligada nao cria assinatura nem bloqueia", async () => {
