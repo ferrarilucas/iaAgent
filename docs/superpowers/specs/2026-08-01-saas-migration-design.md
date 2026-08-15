@@ -27,14 +27,22 @@ caem). Em escala isso empurra para a WhatsApp Cloud API oficial. Não é problem
 | **Individual** | R$ 9,99 | R$ 29,99 |
 | **Espaço** (casal/família) | R$ 14,99 | R$ 34,99 |
 
-- **Trial:** 7 dias, sempre com a nossa IA (melhor primeira impressão).
+- **Trial:** 7 dias, **com a chave do próprio usuário (BYO)** — decisão de 2026-08-03. A nossa
+  IA é exclusiva de quem paga. Consequência econômica: nunca pagamos IA de quem não paga.
+  Consequência de produto: a pessoa precisa criar uma API key antes da primeira resposta do
+  agente, o que é fricção real para público não-técnico. Consequência de engenharia: o BYO
+  vira **pré-requisito** de qualquer uso do produto, e por isso passou a ser a primeira fase
+  de implementação (ver ordem abaixo).
 - **Tolerância de atraso (dunning):** 3 dias após falha de pagamento antes do bloqueio.
 - **Híbrido:** a unidade-base é a pessoa/número (individual). Compartilhar espaço com
   outros é um upgrade para `tier = espaco` (+R$5 nos dois modos).
 
 O público-alvo é majoritariamente não-técnico, então o plano com a nossa IA é o
-carro-chefe (margem alta: Gemini Flash custa centavos por usuário/mês). O BYO atende um
-nicho técnico e por isso entra depois (Fase 3), não na fundação.
+carro-chefe (margem alta: Gemini Flash custa centavos por usuário/mês).
+
+**Revisão de 2026-08-03:** o BYO deixou de ser um nicho opcional. Como o trial passou a
+exigir chave própria, todo mundo passa pelo BYO na entrada, e a nossa IA virou exclusiva de
+quem paga. Isso torna o BYO a próxima fase de implementação, não a terceira.
 
 ## Entrada e identidade
 
@@ -155,21 +163,61 @@ Implicações práticas para a Fase 2:
 - A interface `PaymentProvider` continua valendo: a escolha não deve vazar para o resto do
   sistema, e trocar de provedor (ou rodar dois em paralelo) precisa seguir barato.
 
+## Decisões da fase de pagamento (tomadas em 2026-08-03)
+
+Brainstorm feito antes do reordenamento; a fase virou a 3, decomposta em 3a e 3b. As decisões
+abaixo continuam valendo e não precisam ser retomadas do zero:
+
+- **Onde se paga:** checkout próprio no painel (não link hospedado do provedor).
+- **Dados do cartão:** tokenização no navegador — o cartão vai direto do browser para o
+  Asaas e o backend recebe só um token. PCI fora do nosso escopo.
+- **CPF do pagante:** **é armazenado** (campo em `subscriptions`), para reconciliar com o
+  pagador em caso de problema. É dado pessoal sob LGPD, base legal de execução de contrato:
+  nunca logar, exibir mascarado em qualquer tela.
+- **Usuários existentes no flip:** sem tratamento especial — a base atual é essencialmente o
+  dono do projeto. Ele deve marcar a própria conta como `ativo` antes de virar a chave, ou se
+  bloqueia junto. Isso **elimina o backfill** que era pré-condição nº 1.
+- **Cortesia / VIP:** SQL direto em produção, com o comando versionado em `scripts/`
+  (idempotente, `WHERE` explícito). Não precisa de schema novo: cortesia é
+  `status = 'ativo' AND provider IS NULL`, o que também separa VIP de pagante nas métricas.
+  Duas proteções já existentes garantem que a máquina de cobrança nunca encoste num VIP:
+  `ensureTrialSubscription` não rebaixa quem está `ativo`, e o webhook casa por
+  `provider_subscription_id`, que na cortesia é nulo.
+- **Lançamento:** nada vai ao público até a matriz de 4 planos estar completa. A ordem de
+  construção segue normal; só o flip da flag espera.
+- **Confirmação no WhatsApp:** ao confirmar pagamento, o Pilinha manda um "tá liberado",
+  fechando o ciclo de quem foi bloqueado e saiu para pagar.
+
+Desenho técnico da 3a já esboçado: pacote novo `packages/billing` (catálogo de planos com
+preços em centavos, interface `PaymentProvider` com `ensureCustomer`/`createSubscription`/
+`cancelSubscription`/`verifyWebhook`, adapter Asaas); tabela `billing_events` com claim
+atômico idêntico ao de `processed_messages` e payload cru guardado para auditoria; transição
+de estado como **função pura** `applyBillingEvent`, espelhando `subscriptionAccess`.
+
+Detalhe crítico da transição: em `pagamento_atrasado`, gravar `pastDueSince` **somente se
+ainda estiver vazio**. O provedor reenvia cobranças falhas, e reiniciar o relógio a cada
+evento tornaria a tolerância de 3 dias infinita — o inadimplente nunca seria bloqueado.
+
 ## Plano de migração faseado
 
 Isto é um programa, não um único spec. Cada fase terá seu próprio ciclo
 spec → plano → implementação.
 
 - **Fase 0 — pré-requisito (CONCLUÍDA):** normalizar números em prod.
-- **Fase 1 — multi-tenancy sem dinheiro (ESCOPO DESTE CICLO):** schema de assinatura
-  (`subscriptions`) + resolver de acesso + porteiro com trial + injeção de IA por usuário
-  (fecha o gap do `googleApiKey`). Atrás de feature-flag. Sem provedor de pagamento e sem
-  BYO. É a fundação e não depende de nenhuma decisão externa.
-- **Fase 2 — pagamento:** interface `PaymentProvider` + 1 provedor concreto + webhook +
-  telas de checkout/assinatura. Trial passa a vencer e bloquear de verdade; dunning de
-  3 dias.
-- **Fase 3 — BYO:** `ai_credentials` cifrada + tela de config + validação + resolver
-  usando a key do usuário. Planos de R$9,99 / R$14,99 ligados.
+- **Fase 1 — multi-tenancy sem dinheiro (CONCLUÍDA, commits 9dacd86..45955d1):** schema de
+  assinatura (`subscriptions`) + resolver de acesso + porteiro com trial + injeção de IA por
+  usuário (fechou o gap do `googleApiKey`). Atrás de feature-flag, default desligada.
+
+**ORDEM REVISADA a partir daqui (2026-08-03)** — o trial passou a exigir chave própria, então
+o BYO deixou de ser a terceira fase e virou pré-requisito de o produto funcionar para
+qualquer pessoa:
+
+- **Fase 2 — BYO (era Fase 3) — PRÓXIMA:** `ai_credentials` cifrada + tela de config +
+  validação + `resolveAiConfig` ramificando de verdade. `ensureTrialSubscription` passa a
+  criar o trial com `aiMode: "byo"`. Estado novo no porteiro: "em trial, mas ainda sem chave
+  configurada" → mensagem determinística mandando configurar. Sem isso, ninguém usa o agente.
+- **Fase 3 — pagamento (era Fase 2):** decomposta em 3a (núcleo de cobrança, servidor) e
+  3b (checkout e tela de assinatura, web). Ver "Decisões da fase de pagamento" abaixo.
 - **Fase 4 — plano de espaço:** upgrade híbrido + regras de cobertura (§5).
 - **Fase 5 — endurecimento:** anti-ban do número único (rate limit), dunning ativo
   (lembrete no próprio WhatsApp), observabilidade de billing.
