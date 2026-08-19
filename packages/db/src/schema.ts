@@ -84,6 +84,12 @@ export const invitations = pgTable("invitations", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const blockedNumbers = pgTable("blocked_numbers", {
+  whatsappNumber: text("whatsapp_number").primaryKey(),
+  reason: text("reason"),
+  blockedAt: timestamp("blocked_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const processedMessages = pgTable("processed_messages", {
   messageId: text("message_id").primaryKey(),
   processedAt: timestamp("processed_at", { withTimezone: true }).defaultNow().notNull(),

@@ -3,6 +3,7 @@ export * from "./categories";
 export * from "./transactions";
 export * from "./invitations";
 export * from "./messages";
+export * from "./blocked-numbers";
 export * from "./budgets";
 export * from "./budget-notifications";
 export * from "./spaces";
