@@ -6,6 +6,7 @@ import {
   getSpaceForUser,
   markMessageProcessed,
   resolveAccessForUser,
+  isNumberBlocked,
 } from "@ia/db";
 import type { IncomingMessage } from "@ia/whatsapp";
 import { pushSpaceBudgetAlerts } from "./space-alerts";
@@ -34,6 +35,7 @@ const FALLBACK_TEXT = "Nao consegui processar sua mensagem agora. Pode tentar de
 
 export async function processMessage(deps: ProcessDeps, incoming: IncomingMessage): Promise<void> {
   if (incoming.fromMe) return;
+  if (await isNumberBlocked(deps.db, incoming.fromNumber)) return;
   const claimed = await markMessageProcessed(deps.db, incoming.messageId);
   if (!claimed) return;
 

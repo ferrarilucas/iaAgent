@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createTestDb } from "../../../packages/db/test/helpers";
-import { getUserByWhatsappNumber, listTransactionsForSpace, getSpaceForUser } from "@ia/db";
+import { getUserByWhatsappNumber, listTransactionsForSpace, getSpaceForUser, blockNumber, isMessageProcessed } from "@ia/db";
 import { processMessage } from "../src/agent/process-message";
 import type { IncomingMessage } from "@ia/whatsapp";
 
@@ -43,6 +43,39 @@ describe("processMessage", () => {
     await processMessage({ db: t.db, runAgent, sendText, markAsRead, setTyping }, incoming);
     await processMessage({ db: t.db, runAgent, sendText, markAsRead, setTyping }, incoming);
     expect(runAgent).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignora em silencio mensagem de numero na lista negra", async () => {
+    const t = await createTestDb(); close = t.close;
+    await blockNumber(t.db, "5511", "spam");
+    const runAgent = vi.fn(async () => "ok");
+    const sendText = vi.fn(async () => {});
+    const markAsRead = vi.fn(async () => {});
+    const setTyping = vi.fn(async () => {});
+    const incoming: IncomingMessage = { messageId: "BLK1", remoteJid: "5511@s.whatsapp.net", fromNumber: "5511", fromMe: false, kind: "texto", text: "oi" };
+
+    await processMessage({ db: t.db, runAgent, sendText, markAsRead, setTyping }, incoming);
+
+    expect(runAgent.mock.calls.length).toBe(0);
+    expect(sendText.mock.calls.length).toBe(0);
+    expect(markAsRead.mock.calls.length).toBe(0);
+    expect(setTyping.mock.calls.length).toBe(0);
+    expect(await getUserByWhatsappNumber(t.db, "5511")).toBeUndefined();
+    expect(await isMessageProcessed(t.db, "BLK1")).toBe(false);
+  });
+
+  it("continua atendendo numero que nao esta na lista negra", async () => {
+    const t = await createTestDb(); close = t.close;
+    await blockNumber(t.db, "5599", "spam");
+    const runAgent = vi.fn(async () => "ok");
+    const sendText = vi.fn(async () => {});
+    const markAsRead = vi.fn(async () => {});
+    const setTyping = vi.fn(async () => {});
+    const incoming: IncomingMessage = { messageId: "OK1", remoteJid: "5511@s.whatsapp.net", fromNumber: "5511", fromMe: false, kind: "texto", text: "oi" };
+
+    await processMessage({ db: t.db, runAgent, sendText, markAsRead, setTyping }, incoming);
+
+    expect(runAgent.mock.calls.length).toBe(1);
   });
 
   it("envia fallback e nao rejeita quando runAgent falha", async () => {
