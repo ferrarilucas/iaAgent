@@ -1,0 +1,424 @@
+diff --git a/prisma/migrations/20261111130000_whatsapp_bot/migration.sql b/prisma/migrations/20261111130000_whatsapp_bot/migration.sql
+new file mode 100644
+index 0000000..1cd484c
+--- /dev/null
++++ b/prisma/migrations/20261111130000_whatsapp_bot/migration.sql
+@@ -0,0 +1,18 @@
++ALTER TABLE "user" ADD COLUMN "whatsappPhone" TEXT;
++CREATE UNIQUE INDEX "user_whatsappPhone_key" ON "user"("whatsappPhone");
++
++CREATE TABLE "whatsapp_notice" (
++    "phone" TEXT PRIMARY KEY,
++    "day" TEXT NOT NULL,
++    "tokenHash" TEXT,
++    "expiresAt" TIMESTAMP(3) NOT NULL,
++    "consumedAt" TIMESTAMP(3)
++);
++CREATE UNIQUE INDEX "whatsapp_notice_tokenHash_key" ON "whatsapp_notice"("tokenHash");
++
++CREATE TABLE "whatsapp_customer_choice" (
++    "phone" TEXT PRIMARY KEY,
++    "workspaceId" TEXT NOT NULL,
++    "customerIds" TEXT[] NOT NULL,
++    "expiresAt" TIMESTAMP(3) NOT NULL
++);
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index c71f514..b421966 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -29,6 +29,7 @@ model User {
+   emailVerified   Boolean   @default(false)
+   image           String?
+   cpf             String?
++  whatsappPhone   String?   @unique
+   termsVersion    String?
+   termsAcceptedAt DateTime?
+   appTourCompletedAt DateTime?
+@@ -52,6 +53,25 @@ model User {
+   @@map("user")
+ }
+ 
++model WhatsAppNotice {
++  phone      String   @id
++  day        String
++  tokenHash  String?  @unique
++  expiresAt  DateTime
++  consumedAt DateTime?
++
++  @@map("whatsapp_notice")
++}
++
++model WhatsAppCustomerChoice {
++  phone       String   @id
++  workspaceId String
++  customerIds String[]
++  expiresAt   DateTime
++
++  @@map("whatsapp_customer_choice")
++}
++
+ model PushSubscription {
+   id        String   @id @default(cuid())
+   userId    String
+diff --git a/src/app/api/v1/internal/whatsapp/route.ts b/src/app/api/v1/internal/whatsapp/route.ts
+new file mode 100644
+index 0000000..a69bddc
+--- /dev/null
++++ b/src/app/api/v1/internal/whatsapp/route.ts
+@@ -0,0 +1,26 @@
++import { timingSafeEqual } from "node:crypto";
++import { z } from "zod";
++import { handleWhatsAppRequest } from "@/server/whatsapp/query";
++
++const requestSchema = z.discriminatedUnion("action", [
++  z.object({ action: z.literal("access"), messageId: z.string().min(1).max(200) }),
++  z.object({ action: z.literal("customer_balance"), name: z.string().trim().min(1).max(120) }),
++  z.object({ action: z.literal("month_receivables") }),
++  z.object({ action: z.literal("confirm"), option: z.number().int().min(0).max(99) }),
++]).and(z.object({ phone: z.string().regex(/^55[1-9][0-9]9[0-9]{8}$/) }));
++
++export type WhatsAppRequest = z.infer<typeof requestSchema>;
++
++export async function POST(request: Request) {
++  const secret = process.env.CIPRI_BOT_SECRET;
++  const provided = Buffer.from(request.headers.get("authorization") ?? "");
++  const expected = Buffer.from(`Bearer ${secret}`);
++  if (!secret || secret.length < 32 || provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
++    return Response.json({ error: "Unauthorized" }, { status: 401 });
++  }
++
++  const parsed = requestSchema.safeParse(await request.json().catch(() => null));
++  if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
++  const result = await handleWhatsAppRequest(parsed.data);
++  return Response.json(result, { headers: { "Cache-Control": "no-store" } });
++}
+diff --git a/src/app/vincular-whatsapp/actions.ts b/src/app/vincular-whatsapp/actions.ts
+new file mode 100644
+index 0000000..447e061
+--- /dev/null
++++ b/src/app/vincular-whatsapp/actions.ts
+@@ -0,0 +1,20 @@
++"use server";
++
++import { headers } from "next/headers";
++import { redirect } from "next/navigation";
++import { auth } from "@/lib/auth";
++import { hasAcceptedCurrentTerms } from "@/server/tenant/account";
++import { linkTokenPattern, redeemWhatsAppLink } from "@/server/whatsapp/link";
++
++export async function linkWhatsApp(form: FormData) {
++  const token = form.get("token");
++  if (typeof token !== "string" || !linkTokenPattern.test(token)) {
++    redirect("/vincular-whatsapp?status=invalid");
++  }
++  const next = encodeURIComponent(`/vincular-whatsapp?token=${token}`);
++  const session = await auth.api.getSession({ headers: await headers() });
++  if (!session) redirect(`/sign-in?next=${next}`);
++  if (!(await hasAcceptedCurrentTerms(session.user.id))) redirect(`/accept-terms?next=${next}`);
++  const linked = await redeemWhatsAppLink(session.user.id, token);
++  redirect(`/vincular-whatsapp?status=${linked ? "linked" : "invalid"}`);
++}
+diff --git a/src/app/vincular-whatsapp/page.tsx b/src/app/vincular-whatsapp/page.tsx
+new file mode 100644
+index 0000000..027a1e3
+--- /dev/null
++++ b/src/app/vincular-whatsapp/page.tsx
+@@ -0,0 +1,64 @@
++import Link from "next/link";
++import { headers } from "next/headers";
++import { redirect } from "next/navigation";
++import { Button } from "@/components/ui/button";
++import { Card, CardContent } from "@/components/ui/card";
++import { auth } from "@/lib/auth";
++import { db } from "@/lib/db";
++import { hasAcceptedCurrentTerms } from "@/server/tenant/account";
++import { hashLinkToken, linkTokenPattern } from "@/server/whatsapp/link";
++import { linkWhatsApp } from "./actions";
++
++export const metadata = {
++  title: "Vincular WhatsApp — Cipri",
++  robots: { index: false, follow: false },
++  referrer: "no-referrer" as const,
++};
++
++export default async function LinkWhatsAppPage({
++  searchParams,
++}: {
++  searchParams: Promise<{ token?: string; status?: string }>;
++}) {
++  const { token, status } = await searchParams;
++  const validToken = typeof token === "string" && linkTokenPattern.test(token) ? token : null;
++  const next = encodeURIComponent(validToken ? `/vincular-whatsapp?token=${validToken}` : "/vincular-whatsapp");
++  const session = await auth.api.getSession({ headers: await headers() });
++  if (!session) redirect(`/sign-in?next=${next}`);
++  if (!(await hasAcceptedCurrentTerms(session.user.id))) redirect(`/accept-terms?next=${next}`);
++
++  const [account, notice] = await Promise.all([
++    db.user.findUnique({ where: { id: session.user.id }, select: { whatsappPhone: true } }),
++    validToken ? db.whatsAppNotice.findUnique({ where: { tokenHash: hashLinkToken(validToken) } }) : null,
++  ]);
++  const linked = account?.whatsappPhone;
++  const canLink = !linked && validToken && notice && !notice.consumedAt && notice.expiresAt > new Date();
++
++  return (
++    <main className="flex min-h-dvh items-center justify-center px-6">
++      <Card className="w-full max-w-md">
++        <CardContent className="space-y-4 pt-6">
++          <h1 className="text-xl font-semibold">Vincular WhatsApp</h1>
++          <p className="text-sm text-muted-foreground">
++            {linked
++              ? `O WhatsApp com final ${linked.slice(-4)} está vinculado. Você já pode voltar à conversa com o Cipri.`
++              : canLink
++                ? `Confirme o vínculo do WhatsApp com final ${notice.phone.slice(-4)} à sua conta ${session.user.email}.`
++                : status === "invalid" || validToken
++                  ? "Este link não está disponível. Envie uma mensagem ao Cipri no WhatsApp para receber um novo link quando disponível."
++                  : "Abra o link que o Cipri enviou para você no WhatsApp para confirmar o vínculo."}
++          </p>
++          {canLink && (
++            <form action={linkWhatsApp}>
++              <input type="hidden" name="token" value={validToken} />
++              <Button type="submit">Confirmar vínculo</Button>
++            </form>
++          )}
++          <Button asChild variant="outline">
++            <Link href="/workspaces/plan">Ver planos</Link>
++          </Button>
++        </CardContent>
++      </Card>
++    </main>
++  );
++}
+diff --git a/src/middleware.ts b/src/middleware.ts
+index 38c8d76..9e88965 100644
+--- a/src/middleware.ts
++++ b/src/middleware.ts
+@@ -28,6 +28,9 @@ export function middleware(request: NextRequest) {
+   const sessionCookie = getSessionCookie(request);
+   if (!sessionCookie) {
+     const url = new URL("/sign-in", request.url);
++    if (pathname === "/vincular-whatsapp") {
++      url.searchParams.set("next", pathname + request.nextUrl.search);
++    }
+     return NextResponse.redirect(url);
+   }
+ 
+diff --git a/src/server/whatsapp/link.ts b/src/server/whatsapp/link.ts
+new file mode 100644
+index 0000000..ede1e2c
+--- /dev/null
++++ b/src/server/whatsapp/link.ts
+@@ -0,0 +1,42 @@
++import { createHash } from "node:crypto";
++import { Prisma } from "@prisma/client";
++import { db } from "@/lib/db";
++
++export const linkTokenPattern = /^[A-Za-z0-9_-]{43}$/;
++
++export function hashLinkToken(token: string) {
++  return createHash("sha256").update(token).digest("hex");
++}
++
++export async function redeemWhatsAppLink(userId: string, token: string): Promise<boolean> {
++  if (!linkTokenPattern.test(token)) return false;
++  const now = new Date();
++
++  try {
++    return await db.$transaction(async (tx) => {
++      const notice = await tx.whatsAppNotice.findUnique({
++        where: { tokenHash: hashLinkToken(token) },
++      });
++      if (!notice || notice.consumedAt || notice.expiresAt <= now) return false;
++
++      const claim = await tx.whatsAppNotice.updateMany({
++        where: { phone: notice.phone, tokenHash: notice.tokenHash, consumedAt: null, expiresAt: { gt: now } },
++        data: { consumedAt: now },
++      });
++      if (!claim.count) return false;
++
++      const account = await tx.user.updateMany({
++        where: { id: userId, whatsappPhone: null },
++        data: { whatsappPhone: notice.phone },
++      });
++      if (!account.count) throw new LinkUnavailableError();
++      return true;
++    });
++  } catch (error) {
++    if (error instanceof LinkUnavailableError) return false;
++    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return false;
++    throw error;
++  }
++}
++
++class LinkUnavailableError extends Error {}
+diff --git a/src/server/whatsapp/query.ts b/src/server/whatsapp/query.ts
+new file mode 100644
+index 0000000..de7e02d
+--- /dev/null
++++ b/src/server/whatsapp/query.ts
+@@ -0,0 +1,166 @@
++import { createHash, randomBytes } from "node:crypto";
++import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
++import type { WhatsAppRequest } from "@/app/api/v1/internal/whatsapp/route";
++import { db } from "@/lib/db";
++import { hasAcceptedCurrentTerms } from "@/server/tenant/account";
++import { canWriteInWorkspace } from "@/server/tenant/subscription";
++import { hashLinkToken } from "./link";
++
++const APP_TIME_ZONE = "America/Sao_Paulo";
++const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
++const money = (cents: number) => currency.format(cents / 100);
++const done = (text?: string) => ({ status: "done" as const, text });
++const choiceExpired = "Envie novamente a pergunta com o nome do cliente para que eu possa conferir.";
++const appUrl = (path: string) => new URL(path, process.env.CIPRI_URL ?? "https://cipri.com.br").toString();
++const plans = () => appUrl("/workspaces/plan");
++
++async function dailyNotice(phone: string, messageId: string, linkPhone: boolean, now: Date) {
++  const day = formatInTimeZone(now, APP_TIME_ZONE, "yyyy-MM-dd");
++  const token = linkPhone ? randomBytes(32).toString("base64url") : null;
++  const tokenHash = token ? hashLinkToken(token) : null;
++  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
++
++  // A primeira entrega do dia ganha a reserva mesmo com webhooks concorrentes.
++  const claimed = await db.$transaction(async (tx) => {
++    const updated = await tx.whatsAppNotice.updateMany({
++      where: { phone, day: { lt: day } },
++      data: { day, tokenHash, expiresAt, consumedAt: null },
++    });
++    const inserted = updated.count || (await tx.whatsAppNotice.createMany({
++      data: { phone, day, tokenHash, expiresAt },
++      skipDuplicates: true,
++    })).count;
++    if (!inserted) return false;
++    // Uma repetição do webhook após o vínculo não vira uma nova consulta.
++    await tx.processedWebhookEvent.createMany({
++      data: { id: receiptId(phone, messageId), event: "cipri.whatsapp" },
++      skipDuplicates: true,
++    });
++    return true;
++  });
++  if (!claimed) return done();
++  const intro = "Este canal é exclusivo para assinantes do Cipri.";
++  if (!token) return done(`${intro} Veja os planos em ${plans()}`);
++  const link = new URL(appUrl("/vincular-whatsapp"));
++  link.searchParams.set("token", token);
++  return done(`${intro} Entre na sua conta para vincular este WhatsApp: ${link}\nPara assinar, acesse ${plans()}`);
++}
++
++function receiptId(phone: string, messageId: string) {
++  const digest = createHash("sha256").update(`${phone}:${messageId}`).digest("hex");
++  return `cipri.whatsapp.${digest}`;
++}
++
++async function customerBalance(workspaceId: string, id: string) {
++  const customer = await db.customer.findFirst({ where: { id, workspaceId }, select: { name: true } });
++  if (!customer) return done(choiceExpired);
++  const total = await db.saleInstallment.aggregate({
++    where: { workspaceId, paidAt: null, sale: { workspaceId, customerId: id } },
++    _sum: { amountCents: true },
++  });
++  return done(`${customer.name} tem ${money(total._sum.amountCents ?? 0)} em aberto.`);
++}
++
++async function findCustomers(workspaceId: string, phone: string, name: string, now: Date) {
++  const term = name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
++  if (!term.trim()) return done(choiceExpired);
++  const customers = await db.$queryRaw<{ id: string; name: string; phone: string | null; sector: string | null }[]>`
++    SELECT id, name, phone, sector
++    FROM "customer"
++    WHERE "workspaceId" = ${workspaceId}
++      AND strpos(translate(lower(name), 'áàâãäéèêëíìîïóòôõöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'), ${term}) > 0
++    ORDER BY name, id
++    LIMIT 7
++  `;
++  if (!customers.length) return done(`Não encontrei nenhum cliente com o nome “${name}”.`);
++  if (customers.length === 1) return customerBalance(workspaceId, customers[0].id);
++  if (customers.length > 6) return done("Encontrei vários clientes. Envie a pergunta com um nome mais completo.");
++
++  const choice = {
++    workspaceId,
++    customerIds: customers.map((customer) => customer.id),
++    expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
++  };
++  await db.whatsAppCustomerChoice.upsert({ where: { phone }, create: { phone, ...choice }, update: choice });
++  const options = customers.map((customer, index) => {
++    const final = customer.phone?.replace(/\D/g, "").slice(-4);
++    const details = [customer.sector, final ? `telefone final ${final}` : null].filter(Boolean);
++    return `${index + 1}. ${customer.name}${details.length ? ` (${details.join(", ")})` : ""}`;
++  });
++  return done(["Qual cliente você quis dizer? Responda com o número da opção.", ...options].join("\n"));
++}
++
++async function confirmCustomer(workspaceId: string, phone: string, option: number, now: Date) {
++  const pending = await db.whatsAppCustomerChoice.findUnique({ where: { phone } });
++  if (!pending || pending.workspaceId !== workspaceId || pending.expiresAt <= now) return done(choiceExpired);
++  const id = pending.customerIds[option - 1];
++  if (!id) return done(`Responda com um número de 1 a ${pending.customerIds.length}.`);
++  const consumed = await db.whatsAppCustomerChoice.deleteMany({
++    where: { phone, workspaceId, expiresAt: pending.expiresAt, customerIds: { equals: pending.customerIds } },
++  });
++  return consumed.count ? customerBalance(workspaceId, id) : done(choiceExpired);
++}
++
++async function monthReceivables(workspaceId: string, now: Date) {
++  const yearMonth = formatInTimeZone(now, APP_TIME_ZONE, "yyyy-MM");
++  const [year, month] = yearMonth.split("-").map(Number);
++  const nextMonth = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 7);
++  const range = {
++    gte: fromZonedTime(`${yearMonth}-01T00:00:00`, APP_TIME_ZONE),
++    lt: fromZonedTime(`${nextMonth}-01T00:00:00`, APP_TIME_ZONE),
++  };
++  const total = await db.saleInstallment.aggregate({
++    where: {
++      workspaceId,
++      paidAt: null,
++      sale: { workspaceId },
++      dueDate: range,
++    },
++    _sum: { amountCents: true },
++    _count: true,
++  });
++  return done(`Você tem ${money(total._sum.amountCents ?? 0)} em aberto com vencimento neste mês (${total._count} pendências).`);
++}
++
++export async function handleWhatsAppRequest(input: WhatsAppRequest) {
++  const now = new Date();
++  const { phone } = input;
++  const account = await db.user.findUnique({
++    where: { whatsappPhone: phone },
++    select: {
++      id: true,
++      members: { take: 2, select: { workspaceId: true } },
++    },
++  });
++
++  if (!account) return input.action === "access" ? dailyNotice(phone, input.messageId, true, now) : done();
++  if (!(await hasAcceptedCurrentTerms(account.id))) {
++    return done(input.action === "access" ? `Entre no Cipri e aceite os termos para continuar: ${appUrl("/accept-terms")}` : undefined);
++  }
++  if (account.members.length !== 1) {
++    const message = account.members.length
++      ? "Sua conta tem mais de um espaço. Por enquanto, consulte seus valores pelo app do Cipri."
++      : "Crie um espaço no Cipri antes de fazer consultas pelo WhatsApp.";
++    return done(input.action === "access" ? message : undefined);
++  }
++
++  const { workspaceId } = account.members[0];
++  if (!(await canWriteInWorkspace(workspaceId))) {
++    return input.action === "access" ? dailyNotice(phone, input.messageId, false, now) : done();
++  }
++  switch (input.action) {
++    case "access": {
++      const receipt = await db.processedWebhookEvent.createMany({
++        data: { id: receiptId(phone, input.messageId), event: "cipri.whatsapp" },
++        skipDuplicates: true,
++      });
++      return receipt.count ? { status: "allowed" as const } : done();
++    }
++    case "confirm":
++      return confirmCustomer(workspaceId, phone, input.option, now);
++    case "customer_balance":
++      return findCustomers(workspaceId, phone, input.name, now);
++    case "month_receivables":
++      return monthReceivables(workspaceId, now);
++  }
++}
