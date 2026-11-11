@@ -57,23 +57,3 @@ export async function sendText(config: EvolutionConfig, toNumber: string, text: 
   });
   if (!res.ok) throw new Error(`evolution sendText ${res.status}`);
 }
-
-export async function sendButtons(
-  config: EvolutionConfig,
-  number: string,
-  buttons: { id: string; displayText: string }[],
-): Promise<void> {
-  const response = await fetch(`${config.evolutionApiUrl}/message/sendButtons/${config.evolutionInstance}`, {
-    method: "POST",
-    headers: { apikey: config.evolutionApiKey, "content-type": "application/json" },
-    body: JSON.stringify({
-      number,
-      title: "Escolha seu espaço",
-      description: "Toque no espaço que você quer consultar.",
-      footer: "Cipri",
-      buttons: buttons.map((button) => ({ type: "reply", ...button })),
-    }),
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!response.ok) throw new Error(`Evolution sendButtons HTTP ${response.status}`);
-}

@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { normalizeBrazilNumber, parseUpsert, sendButtons, sendText } from "@ia/whatsapp";
+import { normalizeBrazilNumber, parseUpsert, sendText } from "@ia/whatsapp";
 import { z } from "zod";
 
 const configSchema = z.object({
@@ -29,7 +29,6 @@ const replySchema = z.object({
   status: z.enum(["allowed", "done"]),
   text: z.string().optional(),
   workspaceId: z.string().optional(),
-  workspaceMenu: z.object({ id: z.string().uuid(), names: z.array(z.string()).min(1) }).optional(),
 });
 const help = 'Você pode perguntar "Quanto a Jéssica me deve?" ou "Quanto ainda tenho para receber este mês?". Se eu listar clientes, responda com o número da opção.';
 
@@ -155,28 +154,9 @@ export function createCipriWebhook(config: Config) {
         messageId: incoming.messageId,
         ...(switchWorkspace ? { switchWorkspace: true } : {}),
       });
-      if (access.workspaceMenu) {
-        const { id, names } = access.workspaceMenu;
-        const options = names.map((name, index) => `${index + 1}. ${name}`);
-        // Evolution pode aceitar o envio mesmo quando o cliente não renderiza o botão.
-        await reply(["Qual espaço você quer consultar?", ...options, 'Você também pode digitar “workspace 1”, trocando 1 pelo número da opção.'].join("\n"));
-        if (names.length <= 3) {
-          const buttons = options.map((label, index) => ({
-            id: `cipri-space:${id}:${index + 1}`,
-            displayText: Array.from(label).slice(0, 20).join(""),
-          }));
-          try {
-            await sendButtons(evolution, phone, buttons);
-          } catch (error) {
-            const status = error instanceof Error ? /^Evolution sendButtons HTTP [1-5][0-9]{2}$/.exec(error.message)?.[0] : undefined;
-            console.warn("Menu interativo do Cipri indisponível", status ?? (error instanceof Error ? error.name : ""));
-          }
-        }
-        return;
-      }
+      if (access.text) await reply(access.text);
       if (access.status === "done") {
-        if (access.text) await reply(access.text);
-        else console.info("Webhook do Cipri: API encerrou a solicitação sem resposta");
+        if (!access.text) console.info("Webhook do Cipri: API encerrou a solicitação sem resposta");
         return;
       }
 
