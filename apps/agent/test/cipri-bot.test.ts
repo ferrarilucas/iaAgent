@@ -81,6 +81,35 @@ describe("WhatsApp do Cipri", () => {
     });
   });
 
+  it("entende a venda abreviada com variações e quantidades sem chamar o 9Router", async () => {
+    const request = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "allowed", workspaceId: "loja" }))
+      .mockResolvedValueOnce(Response.json({ status: "done", text: "Venda registrada!" }))
+      .mockResolvedValueOnce(Response.json({}));
+    await bot.process(payload("jenifer - 1 cookie branco e 2 de nuttelaa, e 3 trufas de ninho"));
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(request.mock.calls[1][1]?.body))).toEqual({
+      action: "sale_start", phone: "5551999892403", workspaceId: "loja", messageId: "m1",
+      sale: { customer: "jenifer", items: [
+        { quantity: 1, description: "cookie branco" },
+        { quantity: 2, description: "cookie de nuttelaa" },
+        { quantity: 3, description: "trufas de ninho" },
+      ] },
+    });
+  });
+
+  it("identifica o cadastro em uma pergunta como Qual Lucas?", async () => {
+    const request = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "allowed", workspaceId: "loja" }))
+      .mockResolvedValueOnce(Response.json({ status: "done", text: "Lucas Ribeiro — Financeiro" }))
+      .mockResolvedValueOnce(Response.json({}));
+    await bot.process(payload("Qual Lucas?"));
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(request.mock.calls[1][1]?.body))).toMatchObject({
+      action: "customer_balance", identify: true, name: "Lucas",
+    });
+  });
+
   it("anuncia o espaço e processa a primeira consulta na mesma interação", async () => {
     const request = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ status: "allowed", workspaceId: "loja-b", text: "Espaço Loja B." }))
