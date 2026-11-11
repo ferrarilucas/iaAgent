@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { normalizeBrazilNumber, parseUpsert, sendText } from "@ia/whatsapp";
+import { normalizeBrazilNumber, parseUpsert, sendButtons, sendText } from "@ia/whatsapp";
 import { z } from "zod";
 
 const configSchema = z.object({
@@ -25,7 +25,12 @@ const intentSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("month_receivables") }),
   z.object({ action: z.literal("help") }),
 ]);
-const replySchema = z.object({ status: z.enum(["allowed", "done"]), text: z.string().optional() });
+const replySchema = z.object({
+  status: z.enum(["allowed", "done"]),
+  text: z.string().optional(),
+  workspaceId: z.string().optional(),
+  workspaceMenu: z.object({ id: z.string().uuid(), names: z.array(z.string()).min(1) }).optional(),
+});
 const help = 'Você pode perguntar "Quanto a Jéssica me deve?" ou "Quanto ainda tenho para receber este mês?". Se eu listar clientes, responda com o número da opção.';
 
 function sameSecret(input: string, expected: string) {
@@ -118,7 +123,8 @@ export function createCipriWebhook(config: Config) {
         return;
       }
       const text = incoming.text.trim();
-      if (!text) return;
+      const button = /^cipri-space:([0-9a-f-]{36}):([1-9]\d{0,3})$/i.exec(incoming.buttonId ?? "");
+      if (!text && !button) return;
       const alt = envelope.data?.key?.remoteJidAlt;
       const phone = brazilMobile(incoming.remoteJid) ??
         (incoming.remoteJid.endsWith("@lid") && typeof alt === "string" ? brazilMobile(alt) : undefined);
@@ -131,7 +137,43 @@ export function createCipriWebhook(config: Config) {
         await sendText(evolution, phone, message);
         console.info("Webhook do Cipri: Evolution aceitou o envio da resposta");
       };
-      const access = await query({ action: "access", phone, messageId: incoming.messageId });
+      const numberedWorkspace = /^workspace ([1-9]\d{0,3})$/i.exec(text);
+      if (button || numberedWorkspace) {
+        const selection = await query({
+          action: "select_workspace",
+          phone,
+          option: Number(button?.[2] ?? numberedWorkspace?.[1]),
+          menuId: button?.[1],
+        });
+        if (selection.text) await reply(selection.text);
+        return;
+      }
+      const switchWorkspace = /^(?:\/workspace|workspaces?|(?:quero )?trocar (?:de )?(?:workspace|espaco))[.!?]*$/.test(fold(text));
+      const access = await query({
+        action: "access",
+        phone,
+        messageId: incoming.messageId,
+        ...(switchWorkspace ? { switchWorkspace: true } : {}),
+      });
+      if (access.workspaceMenu) {
+        const { id, names } = access.workspaceMenu;
+        const options = names.map((name, index) => `${index + 1}. ${name}`);
+        // Evolution pode aceitar o envio mesmo quando o cliente não renderiza o botão.
+        await reply(["Qual espaço você quer consultar?", ...options, 'Você também pode digitar “workspace 1”, trocando 1 pelo número da opção.'].join("\n"));
+        if (names.length <= 3) {
+          const buttons = options.map((label, index) => ({
+            id: `cipri-space:${id}:${index + 1}`,
+            displayText: Array.from(label).slice(0, 20).join(""),
+          }));
+          try {
+            await sendButtons(evolution, phone, buttons);
+          } catch (error) {
+            const status = error instanceof Error ? /^Evolution sendButtons HTTP [1-5][0-9]{2}$/.exec(error.message)?.[0] : undefined;
+            console.warn("Menu interativo do Cipri indisponível", status ?? (error instanceof Error ? error.name : ""));
+          }
+        }
+        return;
+      }
       if (access.status === "done") {
         if (access.text) await reply(access.text);
         else console.info("Webhook do Cipri: API encerrou a solicitação sem resposta");
@@ -156,7 +198,7 @@ export function createCipriWebhook(config: Config) {
         await reply(help);
         return;
       }
-      const result = await query({ ...intent, phone });
+      const result = await query({ ...intent, phone, workspaceId: access.workspaceId });
       if (result.text) await reply(result.text);
     },
   };

@@ -81,6 +81,39 @@ describe("WhatsApp do Cipri", () => {
     });
   });
 
+  it("abre o menu sem IA e oferece texto mesmo se o Evolution recusar os botões", async () => {
+    const menuId = "68d4961f-f1a0-45e5-8ef6-c7bdd99a7397";
+    const request = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "done", workspaceMenu: { id: menuId, names: ["Loja A", "Loja B"] } }))
+      .mockResolvedValueOnce(Response.json({}))
+      .mockResolvedValueOnce(new Response(null, { status: 400 }));
+    await bot.process(payload("Quero trocar de workspace"));
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toMatchObject({ action: "access", switchWorkspace: true });
+    expect(JSON.parse(String(request.mock.calls[1][1]?.body)).text).toContain("workspace 1");
+    expect(request.mock.calls[2][0]).toContain("/message/sendButtons/");
+    expect(JSON.parse(String(request.mock.calls[2][1]?.body)).buttons[1].id).toBe(`cipri-space:${menuId}:2`);
+  });
+
+  it("processa o clique nativo sem encaminhar o ID ao 9Router", async () => {
+    const menuId = "68d4961f-f1a0-45e5-8ef6-c7bdd99a7397";
+    const request = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "done", text: "Loja B selecionada." }))
+      .mockResolvedValueOnce(Response.json({}));
+    const event = payload("");
+    await bot.process({
+      ...event,
+      data: {
+        ...event.data,
+        message: { interactiveResponseMessage: { nativeFlowResponseMessage: {
+          paramsJson: JSON.stringify({ id: `cipri-space:${menuId}:2` }),
+        } } },
+      },
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toMatchObject({ action: "select_workspace", menuId, option: 2 });
+  });
+
   it("confirma a opção diretamente sem usar o modelo", async () => {
     const request = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ status: "allowed" }))
