@@ -42,6 +42,23 @@ describe("WhatsApp do Cipri", () => {
     expect(request.mock.calls[1][0]).toBe("https://evolution.example/message/sendText/cipri");
   });
 
+  it("usa o telefone alternativo quando o Evolution envia o remetente como LID", async () => {
+    const request = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "done", text: "Vincule seu telefone." }))
+      .mockResolvedValueOnce(Response.json({}));
+    const event = payload("Oi", "1234567890@lid");
+    await bot.process({
+      ...event,
+      data: {
+        ...event.data,
+        key: { ...event.data.key, remoteJidAlt: "5551999892403@s.whatsapp.net" },
+      },
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toMatchObject({ phone: "5551999892403" });
+    expect(JSON.parse(String(request.mock.calls[1][1]?.body))).toMatchObject({ number: "5551999892403" });
+  });
+
   it("encerra silenciosamente quando o aviso do dia já foi reservado", async () => {
     const request = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ status: "done" }));
     await bot.process(payload("Oi", "5551999892403@s.whatsapp.net"));

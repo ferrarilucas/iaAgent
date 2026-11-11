@@ -104,20 +104,37 @@ export function createCipriWebhook(config: Config) {
     authorized: (secret: string) => sameSecret(secret, config.CIPRI_WEBHOOK_SECRET),
     async process(payload: unknown) {
       const envelope = payload as { event?: string; instance?: string; data?: { key?: { remoteJidAlt?: unknown } } } | null;
-      if (envelope?.event !== "messages.upsert" || envelope.instance !== config.EVOLUTION_INSTANCE) return;
+      if (envelope?.event !== "messages.upsert") {
+        console.info("Webhook do Cipri ignorado: evento diferente de messages.upsert");
+        return;
+      }
+      if (envelope.instance !== config.EVOLUTION_INSTANCE) {
+        console.warn("Webhook do Cipri ignorado: instância diferente de EVOLUTION_INSTANCE");
+        return;
+      }
       const incoming = parseUpsert(payload);
-      if (!incoming || incoming.fromMe) return;
+      if (!incoming || incoming.fromMe) {
+        console.info("Webhook do Cipri ignorado: mensagem própria ou texto indisponível");
+        return;
+      }
       const text = incoming.text.trim();
       if (!text) return;
       const alt = envelope.data?.key?.remoteJidAlt;
       const phone = brazilMobile(incoming.remoteJid) ??
         (incoming.remoteJid.endsWith("@lid") && typeof alt === "string" ? brazilMobile(alt) : undefined);
-      if (!phone) return;
+      if (!phone) {
+        console.warn("Webhook do Cipri ignorado: telefone do remetente indisponível");
+        return;
+      }
 
-      const reply = async (message: string) => sendText(evolution, phone, message);
+      const reply = async (message: string) => {
+        await sendText(evolution, phone, message);
+        console.info("Webhook do Cipri: Evolution aceitou o envio da resposta");
+      };
       const access = await query({ action: "access", phone, messageId: incoming.messageId });
       if (access.status === "done") {
         if (access.text) await reply(access.text);
+        else console.info("Webhook do Cipri: API encerrou a solicitação sem resposta");
         return;
       }
 
@@ -130,7 +147,8 @@ export function createCipriWebhook(config: Config) {
       try {
         intent = option === null ? await classify(config, text) : { action: "confirm", option };
       } catch (error) {
-        console.error("Falha ao interpretar mensagem do Cipri", error instanceof Error ? error.name : "");
+        const routerStatus = error instanceof Error ? /^9Router HTTP [1-5][0-9]{2}$/.exec(error.message)?.[0] : undefined;
+        console.error("Falha ao interpretar mensagem do Cipri", routerStatus ?? (error instanceof Error ? error.name : ""));
         await reply("Não consegui interpretar sua pergunta agora. Tente novamente em instantes.");
         return;
       }
